@@ -25,4 +25,8 @@
     <ProjectReference Include="..\..\src\Enrolamiento.EnvioCorreos.Api\Enrolamiento.EnvioCorreos.Api.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Archivos\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
