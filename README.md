@@ -22,7 +22,7 @@ Operador ─► sube archivo ─► API lee y valida filas ─► cifra el enlac
         ─► edita asunto/cuerpo ─► vista previa ─► confirma
         ─► API ejecuta pr_mail.mail por fila en segundo plano ─► progreso en vivo, cancelar, reintentar fallidos
 
-Cliente ─► abre https://<URL base>/EnrolamientoHN/?datos=<cifrado> ─► backend del formulario valida con la librería
+Cliente ─► abre https://<URL base>/?datos=<cifrado> ─► backend del formulario valida con la librería
 ```
 
 El enlace que recibe el cliente **nunca** lleva datos en texto claro. El "enlace real" de la pantalla es solo de referencia y no se envía.
@@ -49,10 +49,10 @@ CSV: UTF-8, UTF-16 o Windows-1252 (el "CSV" de Excel), separador `;`, `,` o tabu
 
 | Ambiente | Archivo | URL base del enlace | Envío |
 |---|---|---|---|
-| `Local` | appsettings.Local.json | https://d3322rrb6yrsp3.cloudfront.net/EnrolamientoHN/ | Simulado (no envía) |
-| `Development` (DEV) | appsettings.Development.json | https://d3322rrb6yrsp3.cloudfront.net/EnrolamientoHN/ | Oracle |
-| `Staging` (STG) | appsettings.Staging.json | https://d1i4s8s51j1tuu.cloudfront.net/EnrolamientoHN/ | Oracle |
-| `Production` (PROD) | appsettings.Production.json | https://seguros.ficohsa.com/EnrolamientoHN/ | Oracle (Simulado prohibido) |
+| `Local` | appsettings.Local.json | https://d3322rrb6yrsp3.cloudfront.net/ | Simulado (no envía) |
+| `Development` (DEV) | appsettings.Development.json | https://d3322rrb6yrsp3.cloudfront.net/ | Oracle |
+| `Staging` (STG) | appsettings.Staging.json | https://d1i4s8s51j1tuu.cloudfront.net/ | Oracle |
+| `Production` (PROD) | appsettings.Production.json | https://seguros.ficohsa.com/ | Oracle (Simulado prohibido) |
 
 Valores que deben completar en cada `appsettings.{Ambiente}.json` (hoy tienen marcadores `__..._DEV__`, `__..._STG__`, `__..._PROD__`):
 
@@ -60,6 +60,8 @@ Valores que deben completar en cada `appsettings.{Ambiente}.json` (hoy tienen ma
 - `Oracle:DataSource` → descriptor TNS o `host:1521/servicio`.
 - `Oracle:Usuario` y `Oracle:Clave` → **recomendado por variables de entorno** del sitio IIS (`Oracle__Usuario`, `Oracle__Clave`) en lugar del archivo. Las variables de entorno tienen prioridad sobre el JSON.
 - `Correo:ImagenEncabezadoUrl` / `Correo:ImagenPieUrl` → URLs **HTTPS públicas** de las imágenes de encabezado y pie (el cliente de correo las descarga). Vacío = sin imagen.
+
+**Probar contra Oracle DEV desde su PC:** copie `appsettings.Development.local.json.ejemplo` como `appsettings.Development.local.json`, complete sus datos y ejecute `dotnet run --launch-profile DEV`. Ese archivo lo ignora Git y no se copia al publicar.
 
 La aplicación **no arranca** si falta algo crítico: llaves, remitente válido, credenciales Oracle o URL base HTTPS. Así no hay modos silenciosos.
 

@@ -1,0 +1,10 @@
+{
+  "Correo": {
+    "Remitente": "REMITENTE_DEV@ficohsa.com"
+  },
+  "Oracle": {
+    "DataSource": "HOST_ORACLE_DEV:1521/SERVICIO_DEV",
+    "Usuario": "USUARIO_DEV",
+    "Clave": "CLAVE_DEV"
+  }
+}

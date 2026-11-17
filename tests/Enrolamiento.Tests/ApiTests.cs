@@ -80,7 +80,7 @@ public class ApiTests : IClassFixture<Fabrica>
         var c = await Configuracion();
         Assert.Equal("Complete su formulario de enrolamiento", c.GetProperty("asuntoPorDefecto").GetString());
         Assert.Contains("{{NombreCliente}}", c.GetProperty("cuerpoPorDefecto").GetString());
-        Assert.Equal("https://d3322rrb6yrsp3.cloudfront.net/EnrolamientoHN/", c.GetProperty("urlPublicaBase").GetString());
+        Assert.Equal("https://d3322rrb6yrsp3.cloudfront.net/", c.GetProperty("urlPublicaBase").GetString());
         Assert.Equal(48, c.GetProperty("vigenciaHoras").GetInt32());
         Assert.Equal(["61", "62", "63", "64", "101", "102", "161"],
             c.GetProperty("tiposFormulario").EnumerateArray().Select(t => t.GetString()!).ToArray());
@@ -105,7 +105,7 @@ public class ApiTests : IClassFixture<Fabrica>
 
         var enlace = filas[0].GetProperty("enlace");
         var cifrado = enlace.GetProperty("cifrado").GetString()!;
-        Assert.StartsWith("https://d3322rrb6yrsp3.cloudfront.net/EnrolamientoHN/?datos=", cifrado);
+        Assert.StartsWith("https://d3322rrb6yrsp3.cloudfront.net/?datos=", cifrado);
         Assert.Contains("numeroPoliza=1000000332", enlace.GetProperty("referencia").GetString());
         Assert.Equal(JsonValueKind.Null, filas[2].GetProperty("enlace").ValueKind);
 
@@ -130,7 +130,7 @@ public class ApiTests : IClassFixture<Fabrica>
         Assert.True(v.GetProperty("asuntoModificado").GetBoolean());
         Assert.Contains("Jos&#233; &lt;b&gt;P&#233;rez&lt;/b&gt;", html);   // escapado y ASCII
         Assert.Contains("p&#243;liza 123", html);
-        Assert.Contains("href=\"https://d3322rrb6yrsp3.cloudfront.net/EnrolamientoHN/?datos=", html);
+        Assert.Contains("href=\"https://d3322rrb6yrsp3.cloudfront.net/?datos=", html);
         Assert.Contains("Completar formulario", html);
         Assert.All(html, ch => Assert.True(ch < 128));
     }
@@ -248,9 +248,9 @@ public class ArranqueTests
     }
 
     [Theory]
-    [InlineData("Development", "https://d3322rrb6yrsp3.cloudfront.net/EnrolamientoHN/")]
-    [InlineData("Staging", "https://d1i4s8s51j1tuu.cloudfront.net/EnrolamientoHN/")]
-    [InlineData("Production", "https://seguros.ficohsa.com/EnrolamientoHN/")]
+    [InlineData("Development", "https://d3322rrb6yrsp3.cloudfront.net/")]
+    [InlineData("Staging", "https://d1i4s8s51j1tuu.cloudfront.net/")]
+    [InlineData("Production", "https://seguros.ficohsa.com/")]
     public async Task Url_base_por_ambiente(string ambiente, string url)
     {
         using var f = new Fabrica
@@ -265,5 +265,24 @@ public class ArranqueTests
         var c = await f.CreateClient().GetFromJsonAsync<JsonElement>("/api/configuracion");
         Assert.Equal(url, c.GetProperty("urlPublicaBase").GetString());
         Assert.Equal("Oracle", c.GetProperty("modoEnvio").GetString());
+    }
+}
+
+public class ConfiguracionLocalTests
+{
+    [Fact]
+    public async Task Archivo_local_de_credenciales_se_aplica()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "cfg-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        foreach (var a in Directory.GetFiles(AppContext.BaseDirectory, "appsettings*.json"))
+            File.Copy(a, Path.Combine(dir, Path.GetFileName(a)));
+        File.WriteAllText(Path.Combine(dir, "appsettings.Development.local.json"),
+            """{ "Correo": { "Remitente": "dev@example.test" }, "Oracle": { "DataSource": "h:1521/s", "Usuario": "u", "Clave": "c" } }""");
+        using var f = new Fabrica { Ambiente = "Development" };
+        using var conRaiz = f.WithWebHostBuilder(b => b.UseContentRoot(dir));
+        var c = await conRaiz.CreateClient().GetFromJsonAsync<JsonElement>("/api/configuracion");
+        Assert.Equal("dev@example.test", c.GetProperty("remitente").GetString());
+        Assert.Equal("https://d3322rrb6yrsp3.cloudfront.net/", c.GetProperty("urlPublicaBase").GetString());
     }
 }

@@ -17,6 +17,9 @@ if (args.Length > 0 && args[0] == "generar-llave")
 }
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Credenciales locales fuera de Git: appsettings.{Ambiente}.local.json (ignorado por Git y excluido de la publicación).
+builder.Configuration.AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.local.json", optional: true, reloadOnChange: false);
 var s = builder.Services;
 
 s.AddProblemDetails();
