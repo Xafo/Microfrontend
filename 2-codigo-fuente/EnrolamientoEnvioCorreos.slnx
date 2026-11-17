@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Enrolamiento.Enlaces/Enrolamiento.Enlaces.csproj" />
+    <Project Path="src/Enrolamiento.EnvioCorreos.Api/Enrolamiento.EnvioCorreos.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Enrolamiento.Tests/Enrolamiento.Tests.csproj" />
+  </Folder>
+</Solution>

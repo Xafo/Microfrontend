@@ -1,0 +1,17 @@
+ENVIO DE ENLACES DE ENROLAMIENTO - EJECUCION LOCAL EN WINDOWS
+==============================================================
+
+FORMA RAPIDA (no requiere instalar nada):
+  1. Descomprima en una ruta corta, por ejemplo C:\Enrolamiento\
+  2. Entre a la carpeta 1-ejecutable-windows
+  3. Doble clic en iniciar-local.cmd
+  4. Se abre http://localhost:5180  (envio SIMULADO, no manda correos)
+  5. Para detener: cierre la ventana negra
+
+Si Windows bloquea el programa: "Mas informacion" -> "Ejecutar de todas formas".
+Si sigue bloqueado: clic derecho al .zip -> Propiedades -> Desbloquear, y vuelva a descomprimir.
+
+Contenido:
+  1-ejecutable-windows  Aplicacion compilada para Windows x64 (incluye .NET; no requiere Node ni .NET)
+  2-codigo-fuente       Codigo completo + web\node_modules (para Windows) + paquetes-nuget (compila sin internet)
+  LEEME.md              Instrucciones completas (Oracle DEV, codigo fuente, frontend)

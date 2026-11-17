@@ -1,0 +1,129 @@
+using Enrolamiento.Enlaces;
+using Enrolamiento.EnvioCorreos.Api.Carga;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
+namespace Enrolamiento.Tests;
+
+public class LectorDestinatariosTests
+{
+    private static ResultadoLectura Leer(string archivo, CargaOptions? o = null)
+    {
+        using var sp = Utilidades.Crear();
+        var lector = new LectorDestinatarios(Options.Create(o ?? new CargaOptions()), sp.GetRequiredService<ValidadorDatosEnrolamiento>());
+        return lector.Leer(archivo, File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Archivos", archivo)));
+    }
+
+    [Theory]
+    [InlineData("destinatarios.xlsx")]
+    [InlineData("destinatarios.xls")]
+    public void Lee_excel(string archivo)
+    {
+        var r = Leer(archivo);
+        Assert.Equal("Destinatarios", r.Hoja);
+        Assert.Equal(4, r.Filas.Count); // la fila vacía se omite
+
+        var a = r.Filas[0];
+        Assert.Equal(2, a.NumeroFila);
+        Assert.Equal(("61", "CONTRATANTE DE PRUEBA", "José Pérez", "1000000332", 2500000m, "cliente@example.test"),
+            (a.TipoFormulario, a.NombreContratante, a.NombreCliente, a.NumeroPoliza, a.SumaAsegurada!.Value, a.Correo));
+        Assert.Empty(a.Errores);
+
+        var b = r.Filas[1];
+        Assert.Equal("0001234", b.NumeroPoliza);            // ceros a la izquierda conservados
+        Assert.Equal(1234567.89m, b.SumaAsegurada);
+        Assert.Equal("Compañía Ñandú S.A.", b.NombreContratante);
+        Assert.Empty(b.Errores);
+
+        var c = r.Filas[2];
+        Assert.Contains(c.Errores, e => e.Campo == "TipoFormulario");
+        Assert.Contains(c.Errores, e => e.Campo == "Correo");
+
+        Assert.Contains(r.Filas[3].Errores, e => e.Campo == "Fila" && e.Mensaje.Contains("fila 2"));
+    }
+
+    [Fact]
+    public void Lee_csv_utf8_con_punto_y_coma_y_comillas()
+    {
+        var r = Leer("csv_utf8.csv");
+        Assert.Equal(2, r.Filas.Count);
+        Assert.Equal("Pérez; Hijos & Cía", r.Filas[0].NombreContratante);
+        Assert.Equal("0001000332", r.Filas[0].NumeroPoliza);
+        Assert.Equal(2500000.00m, r.Filas[0].SumaAsegurada);
+        Assert.Empty(r.Filas[0].Errores);
+        Assert.Equal("Dice \"hola\"", r.Filas[1].NombreContratante);
+        Assert.Equal(1500.5m, r.Filas[1].SumaAsegurada);
+        Assert.Equal(4, r.Filas[1].NumeroFila);
+    }
+
+    [Fact]
+    public void Lee_csv_windows_1252_con_comas()
+    {
+        var r = Leer("csv_1252.csv");
+        var f = Assert.Single(r.Filas);
+        Assert.Equal("Compañía Ñandú", f.NombreContratante);
+        Assert.Equal(2500000m, f.SumaAsegurada);
+        Assert.Empty(f.Errores);
+    }
+
+    [Fact]
+    public void Rechaza_archivo_sin_encabezados()
+    {
+        var ex = Assert.Throws<FormatoArchivoException>(() => Leer("sin_encabezados.csv"));
+        Assert.Contains("Nombre del Cliente", ex.Message);
+    }
+
+    [Fact]
+    public void Limita_filas()
+    {
+        var r = Leer("destinatarios.xlsx", new CargaOptions { FilasMaximas = 2 });
+        Assert.Equal(2, r.Filas.Count);
+        Assert.Contains(r.ErroresArchivo, e => e.Contains("máximo"));
+    }
+
+    [Theory]
+    [InlineData("a.pdf", new byte[] { 1, 2, 3 })]
+    [InlineData("a.xlsx", new byte[] { 0x41, 0x42, 0x43, 0x44, 0x45 })]
+    [InlineData("a.csv", new byte[] { 0x50, 0x4B, 0x03, 0x04, 0x00 })]
+    [InlineData("a.csv", new byte[0])]
+    public void Rechaza_extension_o_contenido_incorrecto(string nombre, byte[] bytes)
+    {
+        using var sp = Utilidades.Crear();
+        var lector = new LectorDestinatarios(Options.Create(new CargaOptions()), sp.GetRequiredService<ValidadorDatosEnrolamiento>());
+        Assert.Throws<FormatoArchivoException>(() => lector.Leer(nombre, bytes));
+    }
+
+    [Fact]
+    public void Plantilla_entregada_tiene_los_encabezados()
+    {
+        var ruta = Path.Combine(AppContext.BaseDirectory, "Plantillas", "Enrolamiento_EnvioCorreos.xlsx");
+        using var sp = Utilidades.Crear();
+        var lector = new LectorDestinatarios(Options.Create(new CargaOptions()), sp.GetRequiredService<ValidadorDatosEnrolamiento>());
+        var r = lector.Leer(ruta, File.ReadAllBytes(ruta));
+        Assert.Empty(r.Filas);
+        Assert.Contains(r.ErroresArchivo, e => e.Contains("no tiene filas"));
+    }
+
+    [Theory]
+    [InlineData("2500000", "2500000")]
+    [InlineData("2500000.50", "2500000.50")]
+    [InlineData("2,500,000.50", "2500000.50")]
+    [InlineData("2.500.000,50", "2500000.50")]
+    [InlineData("2500000,50", "2500000.50")]
+    [InlineData("1,500", "1500")]
+    [InlineData("L 1,500.25", "1500.25")]
+    [InlineData("HNL 10", "10")]
+    [InlineData("$1.5", "1.5")]
+    [InlineData("1.234", "1.234")]
+    public void Convierte_montos(string texto, string esperado) =>
+        Assert.Equal(decimal.Parse(esperado, System.Globalization.CultureInfo.InvariantCulture), ConversorValores.ASuma(texto));
+
+    [Theory]
+    [InlineData("")] [InlineData("abc")] [InlineData("1,2,3")] [InlineData("1.2.3,4.5")] [InlineData("-5")] [InlineData("12,34,567")] [InlineData("1e5")]
+    public void Rechaza_montos_ambiguos_o_invalidos(string texto) => Assert.Null(ConversorValores.ASuma(texto));
+
+    [Theory]
+    [InlineData(1000000332d, "1000000332")]
+    [InlineData(12.5d, "12.5")]
+    public void Numero_a_texto_sin_notacion_cientifica(double v, string esperado) => Assert.Equal(esperado, ConversorValores.ATexto(v));
+}
