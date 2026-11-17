@@ -82,6 +82,8 @@ public class ApiTests : IClassFixture<Fabrica>
         Assert.Contains("{{NombreCliente}}", c.GetProperty("cuerpoPorDefecto").GetString());
         Assert.Equal("https://d3322rrb6yrsp3.cloudfront.net/EnrolamientoHN/", c.GetProperty("urlPublicaBase").GetString());
         Assert.Equal(48, c.GetProperty("vigenciaHoras").GetInt32());
+        Assert.Equal(["61", "62", "63", "64", "101", "102", "161"],
+            c.GetProperty("tiposFormulario").EnumerateArray().Select(t => t.GetString()!).ToArray());
     }
 
     [Fact]

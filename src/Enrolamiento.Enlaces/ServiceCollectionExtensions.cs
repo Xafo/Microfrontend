@@ -17,6 +17,11 @@ public static class ServiceCollectionExtensions
     {
         services.AddOptions<EnlacesOptions>()
             .Bind(configuracion.GetSection(EnlacesOptions.Seccion))
+            .PostConfigure(o =>
+            {
+                if (o.TiposFormularioPermitidos.Count == 0) o.TiposFormularioPermitidos.AddRange(EnlacesOptions.TiposPorDefecto);
+                o.TiposFormularioPermitidos = o.TiposFormularioPermitidos.Select(t => t.Trim()).Distinct().ToList();
+            })
             .Validate(o => Uri.TryCreate(o.UrlPublicaBase, UriKind.Absolute, out var u)
                            && u.Scheme == Uri.UriSchemeHttps && string.IsNullOrEmpty(u.Query) && string.IsNullOrEmpty(u.Fragment)
                            && u.AbsolutePath.EndsWith('/'),
@@ -25,7 +30,6 @@ public static class ServiceCollectionExtensions
                 "Enlaces:VigenciaHoras debe ser positiva y no mayor que VigenciaMaximaHoras.")
             .Validate(o => !string.IsNullOrWhiteSpace(o.NombreAplicacion), "Enlaces:NombreAplicacion es obligatorio.")
             .Validate(o => !string.IsNullOrWhiteSpace(o.NombreParametro), "Enlaces:NombreParametro es obligatorio.")
-            .Validate(o => o.TiposFormularioPermitidos.Count > 0, "Enlaces:TiposFormularioPermitidos no puede estar vacío.")
             .ValidateOnStart();
 
         var nombreApp = configuracion[$"{EnlacesOptions.Seccion}:{nameof(EnlacesOptions.NombreAplicacion)}"] ?? new EnlacesOptions().NombreAplicacion;

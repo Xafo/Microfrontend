@@ -29,7 +29,10 @@ public sealed class EnlacesOptions
     /// <summary>Variable de entorno que contiene el key ring (XML o Base64 del XML).</summary>
     public string VariableEntornoLlaves { get; set; } = "ENROLAMIENTO_DP_LLAVES";
 
-    public List<string> TiposFormularioPermitidos { get; set; } = ["61", "62", "63", "64", "101", "102", "161"];
+    public static readonly string[] TiposPorDefecto = ["61", "62", "63", "64", "101", "102", "161"];
+
+    /// <summary>Vacío en configuración = <see cref="TiposPorDefecto"/>. (Inicia vacía: el binder agrega a la lista, no la reemplaza.)</summary>
+    public List<string> TiposFormularioPermitidos { get; set; } = [];
 
     public int LongitudMaximaNombreContratante { get; set; } = 200;
     public int LongitudMaximaNumeroPoliza { get; set; } = 30;

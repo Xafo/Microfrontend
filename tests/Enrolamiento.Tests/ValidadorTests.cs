@@ -11,6 +11,15 @@ public class ValidadorTests
         return sp.GetRequiredService<ValidadorDatosEnrolamiento>().Validar(d);
     }
 
+    [Fact]
+    public void Tipos_configurados_reemplazan_los_por_defecto()
+    {
+        using var sp = Utilidades.Crear(extra: new() { ["Enlaces:TiposFormularioPermitidos:0"] = "61" });
+        var v = sp.GetRequiredService<ValidadorDatosEnrolamiento>();
+        Assert.Empty(v.Validar(Utilidades.Datos(tipo: "61")));
+        Assert.NotEmpty(v.Validar(Utilidades.Datos(tipo: "62")));
+    }
+
     [Fact] public void Datos_validos() => Assert.Empty(Validar(Utilidades.Datos()));
 
     [Theory]
