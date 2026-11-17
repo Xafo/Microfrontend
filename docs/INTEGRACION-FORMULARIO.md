@@ -1,6 +1,6 @@
 # Integración para el backend del formulario de enrolamiento
 
-El cliente llega a `https://<URL base>/EnrolamientoHN/?datos=<contenido protegido>`. El backend del formulario (no React) debe validar `datos`.
+El cliente llega a `https://<URL base>/?datos=<contenido protegido>`. El backend del formulario (no React) debe validar `datos`.
 
 ## Opción recomendada: misma librería y mismas llaves (sin llamada HTTP)
 

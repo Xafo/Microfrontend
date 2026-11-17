@@ -8,7 +8,7 @@ public sealed class EnlacesOptions
 {
     public const string Seccion = "Enlaces";
 
-    /// <summary>URL pública base del formulario (HTTPS). Ej.: https://seguros.ficohsa.com/EnrolamientoHN/</summary>
+    /// <summary>URL pública base del formulario (HTTPS). Ej.: https://seguros.ficohsa.com/ (el enlace queda https://seguros.ficohsa.com/?datos=...)</summary>
     public string UrlPublicaBase { get; set; } = "";
 
     /// <summary>Nombre del parámetro de query que lleva el contenido protegido.</summary>
