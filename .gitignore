@@ -1,0 +1,11 @@
+bin/
+obj/
+node_modules/
+dist/
+*.user
+.vs/
+TestResults/
+src/Enrolamiento.EnvioCorreos.Api/wwwroot/
+appsettings.*.local.json
+.env
+.env.*
