@@ -115,7 +115,7 @@ dotnet publish src/Enrolamiento.EnvioCorreos.Api -c Release -o publish
 
 Revisamos `ficohsa.pr_mail.mail(sender, recipients, subject, message)` en la captura compartida:
 
-1. **⚠ El destinatario está fijo.** En la línea 100 se llama `begin_mail(sender, 'darwin.martinez@...', subject)` y no se usa el parámetro `recipients`. Tal como está, **todos los correos llegan a esa persona**. Hay que cambiarlo a `begin_mail(sender, recipients, subject)` antes de usarlo en STG/PROD.
+1. **⚠ El destinatario está fijo.** En la línea 100 se llama `begin_mail` con un correo escrito directamente en el código y no se usa el parámetro `recipients`. Tal como está, **todos los correos llegan a esa persona**. Hay que cambiarlo a `begin_mail(sender, recipients, subject)` antes de usarlo en STG/PROD.
 2. **Los errores se tragan.** El `WHEN OTHERS` guarda `SQLERRM` pero el `INSERT INTO MAIL_ERRORES` está comentado y no relanza la excepción. La pantalla marca "Enviada" cuando el procedimiento termina sin error, pero si falla el SMTP Oracle no lo reporta. Recomendamos descomentar el registro de errores o hacer `RAISE` para que la pantalla muestre el fallo real.
 3. **Codificación.** `begin_mail` declara `text/html; charset=iso-8859-1`. Por eso el backend convierte todo carácter no ASCII del HTML en entidades (`&#233;`) y envía el asunto sin tildes, para que nada se corrompa sin importar la conversión de juego de caracteres de utl_smtp.
 4. **Tamaño.** `message` es VARCHAR2, con un máximo de 32 767 caracteres. El backend valida el tamaño antes de llamar.
