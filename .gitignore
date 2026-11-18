@@ -9,3 +9,4 @@ src/Enrolamiento.EnvioCorreos.Api/wwwroot/
 appsettings.*.local.json
 .env
 .env.*
+*.tsbuildinfo
