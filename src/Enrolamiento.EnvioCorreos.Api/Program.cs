@@ -42,6 +42,7 @@ s.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = builder.Configuration
 s.AddSingleton(Channel.CreateUnbounded<Guid>(new UnboundedChannelOptions { SingleReader = true }));
 s.AddSingleton<AlmacenLotes>();
 s.AddSingleton<LectorDestinatarios>();
+s.AddSingleton<GeneradorPlantilla>();
 s.AddSingleton<PlantillaCorreo>();
 s.AddSingleton<ServicioLotes>();
 s.AddHostedService<ProcesadorEnvios>();

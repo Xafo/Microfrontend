@@ -33,8 +33,8 @@ public static class LotesEndpoints
             marcadores = PlantillaCorreo.Marcadores,
         });
 
-        api.MapGet("/plantilla", (IWebHostEnvironment env) =>
-            Results.File(Path.Combine(AppContext.BaseDirectory, "Plantillas", "Enrolamiento_EnvioCorreos.xlsx"),
+        api.MapGet("/plantilla", (GeneradorPlantilla plantillaExcel) =>
+            Results.File(plantillaExcel.Generar(),
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Enrolamiento_EnvioCorreos.xlsx"));
 
         api.MapPost("/lotes", async (IFormFile? archivo, ServicioLotes servicio, IOptions<CargaOptions> carga, CancellationToken ct) =>

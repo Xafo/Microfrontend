@@ -33,7 +33,7 @@ Hoja `Destinatarios` (o la primera hoja que tenga estos encabezados). El orden d
 
 | Columna | Regla |
 |---|---|
-| Tipo de Formulario | 61, 62, 63, 64, 101, 102 o 161 |
+| Tipo de Formulario | Nombre completo, escrito: `SPN-F.GTP-61`, `SPN-F.GTP-62`, `SPN-F.GTP-63`, `SPN-F.GTP-64`, `SPN-F.GTP-101`, `SPN-F.GTP-161` o `COACEHL (SPN-F.GTP-102)`. No importan mayúsculas ni espacios de más |
 | Nombre del Contratante | Obligatorio, máx. 200 |
 | Nombre del Cliente | Obligatorio, máx. 200 (saludo del correo; no viaja en el enlace) |
 | Numero de Poliza | Obligatorio, máx. 30, letras/números/`-`/`/`; conserva ceros a la izquierda |
@@ -42,6 +42,21 @@ Hoja `Destinatarios` (o la primera hoja que tenga estos encabezados). El orden d
 | Suma Asegurada | Ya no se usa. Si viene en un archivo anterior, se ignora |
 
 CSV: UTF-8, UTF-16 o Windows-1252 (el "CSV" de Excel), separador `;`, `,` o tabulador. Filas duplicadas (mismo tipo, póliza y correo) se marcan con error.
+
+### Agregar un tipo de formulario
+
+Los tipos aceptados están en `src/Enrolamiento.EnvioCorreos.Api/appsettings.json`. Para aceptar uno nuevo, agregue una línea al final de la lista y reinicie el sitio:
+
+```json
+"TiposFormularioPermitidos": [
+  "SPN-F.GTP-61",
+  ...
+  "COACEHL (SPN-F.GTP-102)",
+  "NUEVO-TIPO"
+]
+```
+
+El tipo nuevo se acepta en la carga y aparece automáticamente en la leyenda del portal y en la plantilla de Excel descargada, en la columna H de la hoja «Destinatarios». La leyenda puede quedarse en el archivo al cargarlo: solo se leen las columnas esperadas. Avise al equipo del formulario, porque el `tipoFormulario` viaja tal cual dentro del enlace.
 
 ## Configuración por ambiente
 

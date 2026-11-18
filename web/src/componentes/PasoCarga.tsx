@@ -73,7 +73,13 @@ export function PasoCarga({ config, onLote }: { config: Configuracion; onLote: (
         <ul>
           {config.columnas.map((c) => <li key={c}>{c}</li>)}
         </ul>
-        <p className="texto-suave">Tipos de formulario permitidos: {config.tiposFormulario.join(', ')}.</p>
+        <div className="leyenda-tipos">
+          <h2>Tipos de formulario aceptados</h2>
+          <p className="texto-suave">En la columna «Tipo de Formulario» escriba el nombre completo, tal como aparece aquí (no importan mayúsculas ni espacios de más):</p>
+          <ul>
+            {config.tiposFormulario.map((t) => <li key={t}><code>{t}</code></li>)}
+          </ul>
+        </div>
       </div>
     </section>
   )

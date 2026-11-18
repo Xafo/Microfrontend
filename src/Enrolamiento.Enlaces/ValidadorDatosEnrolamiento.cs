@@ -15,8 +15,8 @@ public sealed partial class ValidadorDatosEnrolamiento(IOptions<EnlacesOptions> 
 
         if (string.IsNullOrWhiteSpace(d.TipoFormulario))
             errores.Add(new("TipoFormulario", "Es obligatorio."));
-        else if (!_o.TiposFormularioPermitidos.Contains(d.TipoFormulario))
-            errores.Add(new("TipoFormulario", $"Tipo '{d.TipoFormulario}' no permitido. Permitidos: {string.Join(", ", _o.TiposFormularioPermitidos)}."));
+        else if (!_o.TiposFormularioPermitidos.Contains(d.TipoFormulario, StringComparer.Ordinal))
+            errores.Add(new("TipoFormulario", $"Tipo '{d.TipoFormulario}' no permitido. Debe ser el nombre completo: {string.Join(" | ", _o.TiposFormularioPermitidos)}."));
 
         Texto(errores, "NombreContratante", d.NombreContratante, _o.LongitudMaximaNombreContratante);
 
@@ -28,6 +28,20 @@ public sealed partial class ValidadorDatosEnrolamiento(IOptions<EnlacesOptions> 
 
         return errores;
     }
+
+    /// <summary>
+    /// Devuelve el nombre oficial del tipo si coincide sin importar mayúsculas ni espacios repetidos
+    /// ("spn-f.gtp-61" → "SPN-F.GTP-61"); si no coincide, devuelve el texto tal cual para que se reporte el error.
+    /// </summary>
+    public string NormalizarTipo(string? tipo)
+    {
+        var t = Compactar(tipo);
+        return _o.TiposFormularioPermitidos.FirstOrDefault(p => string.Equals(p, t, StringComparison.OrdinalIgnoreCase)) ?? t;
+    }
+
+    /// <summary>Quita espacios al inicio/fin y deja un solo espacio entre palabras.</summary>
+    public static string Compactar(string? texto) =>
+        string.Join(' ', (texto ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     public static bool EsCorreoValido(string correo) =>
         CorreoRegex().IsMatch(correo)

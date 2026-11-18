@@ -34,6 +34,6 @@ internal static class Utilidades
         return s.BuildServiceProvider();
     }
 
-    public static DatosEnrolamiento Datos(string nombre = "CONTRATANTE DE PRUEBA", string tipo = "61",
+    public static DatosEnrolamiento Datos(string nombre = "CONTRATANTE DE PRUEBA", string tipo = "SPN-F.GTP-61",
         string poliza = "1000000332", string correo = "cliente@example.test") => new(tipo, nombre, poliza, correo);
 }

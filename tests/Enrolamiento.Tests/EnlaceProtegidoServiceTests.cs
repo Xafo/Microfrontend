@@ -45,7 +45,7 @@ public class EnlaceProtegidoServiceTests
     public void Rechaza_contenido_con_campos_extra()
     {
         using var sp = Utilidades.Crear();
-        var json = """{"version":1,"tipoFormulario":"61","nombreContratante":"A","numeroPoliza":"1","sumaAsegurada":1,"correo":"a@b.co"}"""u8.ToArray();
+        var json = """{"version":1,"tipoFormulario":"SPN-F.GTP-61","nombreContratante":"A","numeroPoliza":"1","sumaAsegurada":1,"correo":"a@b.co"}"""u8.ToArray();
         var protegido = sp.GetRequiredService<IDataProtectionProvider>()
             .CreateProtector("Enrolamiento", "EnlaceCorreo", "v1").ToTimeLimitedDataProtector()
             .Protect(json, DateTimeOffset.UtcNow.AddHours(1));
@@ -129,7 +129,7 @@ public class EnlaceProtegidoServiceTests
     public void Rechaza_version_no_soportada_aunque_este_cifrada_correctamente()
     {
         using var sp = Utilidades.Crear();
-        var json = """{"version":2,"tipoFormulario":"61","nombreContratante":"A","numeroPoliza":"1","correo":"a@b.co"}"""u8.ToArray();
+        var json = """{"version":2,"tipoFormulario":"SPN-F.GTP-61","nombreContratante":"A","numeroPoliza":"1","correo":"a@b.co"}"""u8.ToArray();
         var protegido = sp.GetRequiredService<Microsoft.AspNetCore.DataProtection.IDataProtectionProvider>()
             .CreateProtector("Enrolamiento", "EnlaceCorreo", "v1").ToTimeLimitedDataProtector()
             .Protect(json, DateTimeOffset.UtcNow.AddHours(1));
@@ -211,7 +211,7 @@ public class EnlaceProtegidoServiceTests
     public void Enlace_maximo_con_unicode_cabe_en_limite_de_iis()
     {
         using var sp = Utilidades.Crear();
-        var datos = new DatosEnrolamiento("161", new string('Ñ', 200), new string('9', 30),
+        var datos = new DatosEnrolamiento("COACEHL (SPN-F.GTP-102)", new string('Ñ', 200), new string('9', 30),
             new string('a', 64) + "@" + new string('b', 60) + "." + new string('c', 60) + "." + new string('d', 60) + ".hn");
         Assert.Empty(sp.GetRequiredService<ValidadorDatosEnrolamiento>().Validar(datos));
         var url = sp.GetRequiredService<IEnlaceProtegidoService>().GenerarEnlace(datos).Url.AbsoluteUri;

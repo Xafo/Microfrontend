@@ -82,16 +82,42 @@ public class ApiTests : IClassFixture<Fabrica>
         Assert.Contains("{{NombreCliente}}", c.GetProperty("cuerpoPorDefecto").GetString());
         Assert.Equal("https://d3322rrb6yrsp3.cloudfront.net/", c.GetProperty("urlPublicaBase").GetString());
         Assert.Equal(48, c.GetProperty("vigenciaHoras").GetInt32());
-        Assert.Equal(["61", "62", "63", "64", "101", "102", "161"],
+        Assert.Equal(["SPN-F.GTP-61", "SPN-F.GTP-62", "SPN-F.GTP-63", "SPN-F.GTP-64", "SPN-F.GTP-101", "SPN-F.GTP-161", "COACEHL (SPN-F.GTP-102)"],
             c.GetProperty("tiposFormulario").EnumerateArray().Select(t => t.GetString()!).ToArray());
     }
 
     [Fact]
-    public async Task Descarga_plantilla_excel()
+    public async Task Descarga_plantilla_excel_con_leyenda_de_tipos_y_se_puede_volver_a_cargar()
     {
         var r = await _c.GetAsync("/api/plantilla");
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
         Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", r.Content.Headers.ContentType!.MediaType);
+        var bytes = await r.Content.ReadAsByteArrayAsync();
+
+        using var libro = new ClosedXML.Excel.XLWorkbook(new MemoryStream(bytes));
+        var hoja = libro.Worksheet("Destinatarios");
+        var textos = hoja.CellsUsed().Select(c => c.GetString()).ToList();
+        Assert.Contains("Tipos de formulario aceptados", textos);
+        Assert.Contains("COACEHL (SPN-F.GTP-102)", textos);
+        Assert.Contains("SPN-F.GTP-161", textos);
+
+        // La leyenda no se interpreta como filas de datos.
+        var lote = await Subir(_c, "plantilla.xlsx", bytes);
+        Assert.Equal(0, lote.GetProperty("resumen").GetProperty("total").GetInt32());
+    }
+
+    [Fact]
+    public async Task Tipo_agregado_en_configuracion_se_acepta_y_aparece_en_la_leyenda()
+    {
+        using var f = new Fabrica { Config = new() { ["Enlaces:TiposFormularioPermitidos:0"] = "SPN-F.GTP-61", ["Enlaces:TiposFormularioPermitidos:1"] = "SPN-F.GTP-999" } };
+        var c = f.CreateClient();
+        var lote = await Subir(c, "a.csv", Csv("SPN-F.GTP-999;A;A;1;x@example.test", "SPN-F.GTP-62;B;B;2;y@example.test"));
+        var filas = lote.GetProperty("filas").EnumerateArray().ToList();
+        Assert.Equal("Lista", filas[0].GetProperty("estado").GetString());
+        Assert.Equal("Invalida", filas[1].GetProperty("estado").GetString());
+
+        using var libro = new ClosedXML.Excel.XLWorkbook(new MemoryStream(await c.GetByteArrayAsync("/api/plantilla")));
+        Assert.Contains("SPN-F.GTP-999", libro.Worksheet("Destinatarios").CellsUsed().Select(x => x.GetString()));
     }
 
     [Fact]
@@ -113,14 +139,14 @@ public class ApiTests : IClassFixture<Fabrica>
         var svc = _f.Services.GetRequiredService<IEnlaceProtegidoService>();
         var r = svc.ValidarContenido(QueryHelpers.ParseQuery(new Uri(cifrado).Query)["datos"]);
         Assert.True(r.Valido);
-        Assert.Equal(new DatosEnrolamiento("61", "CONTRATANTE DE PRUEBA", "1000000332", "cliente@example.test"), r.Datos);
+        Assert.Equal(new DatosEnrolamiento("SPN-F.GTP-61", "CONTRATANTE DE PRUEBA", "1000000332", "cliente@example.test"), r.Datos);
     }
 
     [Fact]
     public async Task Vista_previa_reemplaza_marcadores_y_es_ascii()
     {
         var c = await Configuracion();
-        var lote = await Subir(_c, "a.csv", Csv("61;Contratante;José <b>Pérez</b>;123;jose@example.test"));
+        var lote = await Subir(_c, "a.csv", Csv("SPN-F.GTP-61;Contratante;José <b>Pérez</b>;123;jose@example.test"));
         var r = await _c.PostAsJsonAsync($"/api/lotes/{lote.GetProperty("id")}/vista-previa",
             new { asunto = "Póliza {{NumeroPoliza}}", cuerpo = c.GetProperty("cuerpoPorDefecto").GetString() });
         var v = await r.Content.ReadFromJsonAsync<JsonElement>();
@@ -140,8 +166,8 @@ public class ApiTests : IClassFixture<Fabrica>
     {
         var c = await Configuracion();
         var lote = await Subir(_c, "a.csv", Csv(
-            "61;Contratante A;Cliente A;111;a@example.test",
-            "62;Contratante B;Cliente B;222;b@example.test",
+            "SPN-F.GTP-61;Contratante A;Cliente A;111;a@example.test",
+            "SPN-F.GTP-62;Contratante B;Cliente B;222;b@example.test",
             "99;Inválida;X;333;c@example.test"));
         var id = lote.GetProperty("id").ToString();
         var cuerpo = c.GetProperty("cuerpoPorDefecto").GetString();
@@ -165,7 +191,7 @@ public class ApiTests : IClassFixture<Fabrica>
     public async Task Reintenta_solo_los_fallidos()
     {
         var c = await Configuracion();
-        var lote = await Subir(_c, "a.csv", Csv("61;A;A;1;ok1@example.test", "61;B;B;2;falla@example.test"));
+        var lote = await Subir(_c, "a.csv", Csv("SPN-F.GTP-61;A;A;1;ok1@example.test", "SPN-F.GTP-61;B;B;2;falla@example.test"));
         var id = lote.GetProperty("id").ToString();
         await _c.PostAsJsonAsync($"/api/lotes/{id}/envio", new { asunto = "Asunto", cuerpo = c.GetProperty("cuerpoPorDefecto").GetString() });
         var fin = await EsperarFin(_c, id);
@@ -186,7 +212,7 @@ public class ApiTests : IClassFixture<Fabrica>
     [InlineData("Asunto {{Enlace}}", "<p>{{Enlace}}</p>")]
     public async Task Rechaza_plantilla_invalida(string asunto, string cuerpo)
     {
-        var lote = await Subir(_c, "a.csv", Csv("61;A;A;1;x@example.test"));
+        var lote = await Subir(_c, "a.csv", Csv("SPN-F.GTP-61;A;A;1;x@example.test"));
         var r = await _c.PostAsJsonAsync($"/api/lotes/{lote.GetProperty("id")}/envio", new { asunto, cuerpo });
         Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await _c.GetAsync($"/api/lotes/{lote.GetProperty("id")}")).StatusCode);
@@ -208,7 +234,7 @@ public class ApiTests : IClassFixture<Fabrica>
     [Fact]
     public async Task Envio_exige_json()
     {
-        var lote = await Subir(_c, "a.csv", Csv("61;A;A;1;x@example.test"));
+        var lote = await Subir(_c, "a.csv", Csv("SPN-F.GTP-61;A;A;1;x@example.test"));
         var r = await _c.PostAsync($"/api/lotes/{lote.GetProperty("id")}/envio", new FormUrlEncodedContent([new("asunto", "x")]));
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, r.StatusCode);
     }

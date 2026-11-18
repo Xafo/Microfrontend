@@ -25,7 +25,7 @@ public class LectorDestinatariosTests
 
         var a = r.Filas[0];
         Assert.Equal(2, a.NumeroFila);
-        Assert.Equal(("61", "CONTRATANTE DE PRUEBA", "José Pérez", "1000000332", "cliente@example.test"),
+        Assert.Equal(("SPN-F.GTP-61", "CONTRATANTE DE PRUEBA", "José Pérez", "1000000332", "cliente@example.test"),
             (a.TipoFormulario, a.NombreContratante, a.NombreCliente, a.NumeroPoliza, a.Correo));
         Assert.Empty(a.Errores);
 
@@ -50,6 +50,8 @@ public class LectorDestinatariosTests
         Assert.Equal("0001000332", r.Filas[0].NumeroPoliza);
         Assert.Empty(r.Filas[0].Errores);
         Assert.Equal("Dice \"hola\"", r.Filas[1].NombreContratante);
+        Assert.Equal("SPN-F.GTP-161", r.Filas[1].TipoFormulario);   // "  spn-f.gtp-161 " normalizado
+        Assert.Empty(r.Filas[1].Errores);
         Assert.Equal(4, r.Filas[1].NumeroFila);
     }
 
@@ -59,6 +61,7 @@ public class LectorDestinatariosTests
         var r = Leer("csv_1252.csv");
         var f = Assert.Single(r.Filas);
         Assert.Equal("Compañía Ñandú", f.NombreContratante);
+        Assert.Equal("COACEHL (SPN-F.GTP-102)", f.TipoFormulario);   // espacios dobles compactados
         Assert.Empty(f.Errores);
     }
 
@@ -67,7 +70,7 @@ public class LectorDestinatariosTests
     {
         using var sp = Utilidades.Crear();
         var lector = new LectorDestinatarios(Options.Create(new CargaOptions()), sp.GetRequiredService<ValidadorDatosEnrolamiento>());
-        var csv = "Tipo de Formulario;Nombre del Contratante;Nombre del Cliente;Numero de Poliza;Correo\n61;Empresa;Ana;123;ana@example.test\n"u8.ToArray();
+        var csv = "Tipo de Formulario;Nombre del Contratante;Nombre del Cliente;Numero de Poliza;Correo\nSPN-F.GTP-61;Empresa;Ana;123;ana@example.test\n"u8.ToArray();
         var f = Assert.Single(lector.Leer("a.csv", csv).Filas);
         Assert.Empty(f.Errores);
     }

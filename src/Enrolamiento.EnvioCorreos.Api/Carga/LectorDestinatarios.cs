@@ -84,7 +84,8 @@ public sealed class LectorDestinatarios(IOptions<CargaOptions> carga, ValidadorD
         for (int f = filaEnc + 1; f < celdas.Count; f++)
         {
             var r = celdas[f];
-            if (r.All(v => ConversorValores.ATexto(v).Length == 0)) continue;
+            // Solo cuentan las columnas esperadas: textos fuera de ellas (p. ej. la leyenda de la plantilla) no son filas.
+            if (idx.Values.All(c => ConversorValores.ATexto(c < r.Length ? r[c] : null).Length == 0)) continue;
             if (filas.Count >= _o.FilasMaximas)
             {
                 errores.Add($"El archivo supera el máximo de {_o.FilasMaximas} filas. Divida el envío.");
@@ -94,7 +95,7 @@ public sealed class LectorDestinatarios(IOptions<CargaOptions> carga, ValidadorD
             var fila = new FilaLeida
             {
                 NumeroFila = f + 1,
-                TipoFormulario = ConversorValores.ATexto(Celda(r, Columnas.TipoFormulario)),
+                TipoFormulario = validador.NormalizarTipo(ConversorValores.ATexto(Celda(r, Columnas.TipoFormulario))),
                 NombreContratante = ConversorValores.ATexto(Celda(r, Columnas.NombreContratante)),
                 NombreCliente = ConversorValores.ATexto(Celda(r, Columnas.NombreCliente)),
                 NumeroPoliza = ConversorValores.ATexto(Celda(r, Columnas.NumeroPoliza)),

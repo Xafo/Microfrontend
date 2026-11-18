@@ -20,7 +20,8 @@ public static class ServiceCollectionExtensions
             .PostConfigure(o =>
             {
                 if (o.TiposFormularioPermitidos.Count == 0) o.TiposFormularioPermitidos.AddRange(EnlacesOptions.TiposPorDefecto);
-                o.TiposFormularioPermitidos = o.TiposFormularioPermitidos.Select(t => t.Trim()).Distinct().ToList();
+                o.TiposFormularioPermitidos = o.TiposFormularioPermitidos.Select(ValidadorDatosEnrolamiento.Compactar)
+                    .Where(t => t.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             })
             .Validate(o => Uri.TryCreate(o.UrlPublicaBase, UriKind.Absolute, out var u)
                            && u.Scheme == Uri.UriSchemeHttps && string.IsNullOrEmpty(u.Query) && string.IsNullOrEmpty(u.Fragment)

@@ -14,21 +14,32 @@ public class ValidadorTests
     [Fact]
     public void Tipos_configurados_reemplazan_los_por_defecto()
     {
-        using var sp = Utilidades.Crear(extra: new() { ["Enlaces:TiposFormularioPermitidos:0"] = "61" });
+        using var sp = Utilidades.Crear(extra: new() { ["Enlaces:TiposFormularioPermitidos:0"] = "SPN-F.GTP-61" });
         var v = sp.GetRequiredService<ValidadorDatosEnrolamiento>();
-        Assert.Empty(v.Validar(Utilidades.Datos(tipo: "61")));
-        Assert.NotEmpty(v.Validar(Utilidades.Datos(tipo: "62")));
+        Assert.Empty(v.Validar(Utilidades.Datos(tipo: "SPN-F.GTP-61")));
+        Assert.NotEmpty(v.Validar(Utilidades.Datos(tipo: "SPN-F.GTP-62")));
     }
 
     [Fact] public void Datos_validos() => Assert.Empty(Validar(Utilidades.Datos()));
 
     [Theory]
-    [InlineData("61")] [InlineData("62")] [InlineData("63")] [InlineData("64")]
-    [InlineData("101")] [InlineData("102")] [InlineData("161")]
+    [InlineData("SPN-F.GTP-61")] [InlineData("SPN-F.GTP-62")] [InlineData("SPN-F.GTP-63")] [InlineData("SPN-F.GTP-64")]
+    [InlineData("SPN-F.GTP-101")] [InlineData("SPN-F.GTP-161")] [InlineData("COACEHL (SPN-F.GTP-102)")]
     public void Tipos_permitidos(string tipo) => Assert.Empty(Validar(Utilidades.Datos(tipo: tipo)));
 
-    [Theory] [InlineData("60")] [InlineData("")] [InlineData(" ")] [InlineData("061")]
+    [Theory] [InlineData("61")] [InlineData("101")] [InlineData("SPN-F.GTP-102")] [InlineData("spn-f.gtp-61")] [InlineData("SPN-F.GTP-65")] [InlineData("")] [InlineData(" ")]
     public void Tipo_no_permitido(string tipo) => Assert.Contains(Validar(Utilidades.Datos(tipo: tipo)), e => e.Campo == "TipoFormulario");
+
+    [Theory]
+    [InlineData("spn-f.gtp-61", "SPN-F.GTP-61")]
+    [InlineData("  SPN-F.GTP-161  ", "SPN-F.GTP-161")]
+    [InlineData("coacehl   (spn-f.gtp-102)", "COACEHL (SPN-F.GTP-102)")]
+    [InlineData("61", "61")]
+    public void Normaliza_tipo_al_nombre_oficial(string entrada, string esperado)
+    {
+        using var sp = Utilidades.Crear();
+        Assert.Equal(esperado, sp.GetRequiredService<ValidadorDatosEnrolamiento>().NormalizarTipo(entrada));
+    }
 
     [Theory] [InlineData("")] [InlineData("   ")] [InlineData(" Juan")]
     public void Nombre_invalido(string n) => Assert.Contains(Validar(Utilidades.Datos(nombre: n)), e => e.Campo == "NombreContratante");
