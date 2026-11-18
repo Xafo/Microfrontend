@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, ErrorApi } from './api'
+import { api, ErrorApi, registrarSesionExpirada } from './api'
 import { Aviso } from './componentes/Comunes'
 import { Encabezado } from './componentes/Encabezado'
+import { Login } from './componentes/Login'
 import { PasoCarga } from './componentes/PasoCarga'
 import { PasoCorreo } from './componentes/PasoCorreo'
 import { PasoEnvio } from './componentes/PasoEnvio'
@@ -10,6 +11,9 @@ import { Pasos, type Paso } from './componentes/Pasos'
 import type { Configuracion, EstadoEnvio, Lote } from './tipos'
 
 export function App() {
+  // undefined = comprobando sesión; null = sin sesión (muestra el login)
+  const [usuario, setUsuario] = useState<string | null | undefined>(undefined)
+  const [avisoLogin, setAvisoLogin] = useState<string | null>(null)
   const [config, setConfig] = useState<Configuracion | null>(null)
   const [errorConfig, setErrorConfig] = useState<string | null>(null)
   const [paso, setPaso] = useState<Paso>('carga')
@@ -19,10 +23,28 @@ export function App() {
   const [cuerpo, setCuerpo] = useState('')
 
   useEffect(() => {
+    registrarSesionExpirada(() => {
+      setUsuario(null)
+      setAvisoLogin('Su sesión expiró. Ingrese de nuevo para continuar.')
+    })
+    api.sesion().then((r) => setUsuario(r.usuario)).catch(() => setUsuario(null))
+  }, [])
+
+  useEffect(() => {
+    if (!usuario || config) return
     api.configuracion()
       .then((c) => { setConfig(c); setAsunto(c.asuntoPorDefecto); setCuerpo(c.cuerpoPorDefecto) })
       .catch((e) => setErrorConfig(e instanceof ErrorApi ? e.message : 'No se pudo cargar la configuración.'))
-  }, [])
+  }, [usuario, config])
+
+  async function cerrarSesion() {
+    if (estado?.estado === 'Enviando' && !window.confirm('Hay un envío en curso. Seguirá ejecutándose en el servidor. ¿Cerrar sesión?')) return
+    try { await api.logout() } catch { /* la sesión se cierra igual en pantalla */ }
+    setAvisoLogin(null)
+    setUsuario(null)
+    setConfig(null)
+    nuevo()
+  }
 
   const consultar = useCallback(async () => {
     if (!lote) return
@@ -54,9 +76,13 @@ export function App() {
     ? ['envio']
     : lote ? ['carga', 'revision', ...(lote.resumen.lista > 0 ? (['correo'] as Paso[]) : [])] : ['carga']
 
+  if (usuario === undefined) return <div className="cargando-sesion" aria-busy="true"><span className="girando" /></div>
+  if (usuario === null)
+    return <Login aviso={avisoLogin} onIngreso={(u) => { setAvisoLogin(null); setErrorConfig(null); setUsuario(u) }} />
+
   return (
     <>
-      <Encabezado config={config} />
+      <Encabezado config={config} usuario={usuario} onCerrarSesion={cerrarSesion} />
       <main className="contenido">
         {errorConfig && <Aviso tipo="error">{errorConfig}</Aviso>}
         {config && (

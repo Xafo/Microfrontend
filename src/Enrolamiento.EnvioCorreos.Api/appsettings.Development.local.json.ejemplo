@@ -1,4 +1,8 @@
 {
+  "Login": {
+    "Usuario": "operador",
+    "ClaveHash": "PEGAR_AQUI_EL_HASH_DE_generar-clave"
+  },
   "Correo": {
     "Remitente": "REMITENTE_DEV@ficohsa.com"
   },

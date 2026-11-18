@@ -58,6 +58,50 @@ Los tipos aceptados están en `src/Enrolamiento.EnvioCorreos.Api/appsettings.jso
 
 El tipo nuevo se acepta en la carga y aparece automáticamente en la leyenda del portal y en la plantilla de Excel descargada, en la columna H de la hoja «Destinatarios». La leyenda puede quedarse en el archivo al cargarlo: solo se leen las columnas esperadas. Avise al equipo del formulario, porque el `tipoFormulario` viaja tal cual dentro del enlace.
 
+## Login
+
+El portal pide usuario y contraseña. Hay un solo usuario y se configura con dos variables:
+
+| Variable | Valor |
+|---|---|
+| `Login__Usuario` | Nombre de usuario (no distingue mayúsculas) |
+| `Login__ClaveHash` | **Hash** de la contraseña, nunca la contraseña en texto |
+
+La contraseña no se guarda en ningún lado. Se guarda un hash PBKDF2-SHA256 con sal aleatoria y 600 000 iteraciones, que no se puede revertir. La aplicación no arranca si falta el usuario o si `Login__ClaveHash` no es un hash válido.
+
+**1. Generar el hash** (desde `src/Enrolamiento.EnvioCorreos.Api`). Pide la contraseña dos veces sin mostrarla, con un mínimo de 10 caracteres:
+```powershell
+dotnet run --no-launch-profile -- generar-clave
+# o, ya publicado:  .\Enrolamiento.EnvioCorreos.Api.exe generar-clave
+```
+Imprime algo como `PBKDF2-SHA256:600000:xxxx==:yyyy=`.
+
+**2. Guardarlo**
+- En su PC, con los secretos de usuario de .NET (quedan fuera del proyecto y de Git):
+  ```powershell
+  dotnet user-secrets set "Login:Usuario" "operador"
+  dotnet user-secrets set "Login:ClaveHash" "PBKDF2-SHA256:600000:xxxx==:yyyy="
+  dotnet user-secrets list
+  ```
+- Como variable de entorno de Windows (en una terminal nueva):
+  ```powershell
+  [Environment]::SetEnvironmentVariable("Login__Usuario", "operador", "User")
+  [Environment]::SetEnvironmentVariable("Login__ClaveHash", "PBKDF2-SHA256:600000:xxxx==:yyyy=", "User")
+  ```
+- En IIS, en el `web.config` publicado:
+  ```xml
+  <aspNetCore ...>
+    <environmentVariables>
+      <environmentVariable name="Login__Usuario" value="operador" />
+      <environmentVariable name="Login__ClaveHash" value="PBKDF2-SHA256:600000:xxxx==:yyyy=" />
+    </environmentVariables>
+  </aspNetCore>
+  ```
+
+**Cambiar la contraseña:** genere un hash nuevo, reemplace `Login__ClaveHash` y reinicie el sitio.
+
+**Seguridad:** la sesión dura 8 horas renovables (`Login:DuracionSesionHoras`), con cookie HttpOnly y SameSite=Strict, que pasa a Secure si el sitio usa HTTPS. Se permiten 5 intentos de login por minuto por IP (`Login:IntentosPorMinuto`) y el mensaje de error no indica qué dato falló. Toda la `/api` exige sesión, y los POST deben traer la cabecera `X-Solicitud` como protección CSRF. Se recomienda publicar el sitio en HTTPS.
+
 ## Configuración por ambiente
 
 `ASPNETCORE_ENVIRONMENT` selecciona el archivo:
@@ -139,7 +183,7 @@ Revisamos `ficohsa.pr_mail.mail(sender, recipients, subject, message)` en la cap
 
 ## Seguridad y limitaciones
 
-- Por ahora la pantalla no tiene login: cualquiera en la red interna con acceso al sitio puede enviar correos. Se recomienda agregar Windows Authentication y un grupo AD en cuanto sea posible.
+- El login es de un solo usuario compartido. Si se necesita saber quién envió cada lote, el siguiente paso es Windows Authentication con un grupo AD.
 - El enlace se puede reutilizar hasta que vence (48 h). No hay revocación individual ni uso único, porque no se crean tablas.
 - Un enlace válido no reemplaza el OTP del formulario.
 - No hay historial en la aplicación; el registro queda en pr_mail. Los logs de la aplicación no contienen correos, nombres ni enlaces.

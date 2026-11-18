@@ -6,14 +6,25 @@ export class ErrorApi extends Error {
   }
 }
 
+let alExpirarSesion: () => void = () => {}
+/** La app registra aquí qué hacer si el servidor responde 401 (sesión vencida o cerrada). */
+export function registrarSesionExpirada(fn: () => void) { alExpirarSesion = fn }
+
 // Rutas relativas: la app vive en el mismo sitio IIS que la API.
 async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
   let r: Response
   try {
-    r = await fetch(ruta, { ...init, cache: 'no-store' })
+    r = await fetch(ruta, {
+      ...init,
+      cache: 'no-store',
+      credentials: 'same-origin',
+      // Cabecera propia del portal: el servidor rechaza los POST que no la traen (protección CSRF).
+      headers: { ...(init?.headers ?? {}), 'X-Solicitud': '1' },
+    })
   } catch {
     throw new ErrorApi('No se pudo conectar con el servidor.', 0)
   }
+  if (r.status === 401 && !ruta.startsWith('api/auth/')) alExpirarSesion()
   if (!r.ok) {
     let detalle = `Error ${r.status}`
     let errores: string[] = []
@@ -24,6 +35,7 @@ async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
     } catch { /* respuesta sin cuerpo JSON */ }
     throw new ErrorApi(detalle, r.status, errores)
   }
+  if (r.status === 204) return undefined as T
   return r.json() as Promise<T>
 }
 
@@ -34,6 +46,9 @@ const json = (body: unknown): RequestInit => ({
 })
 
 export const api = {
+  sesion: () => pedir<{ usuario: string }>('api/auth/sesion'),
+  login: (usuario: string, clave: string) => pedir<{ usuario: string }>('api/auth/login', json({ usuario, clave })),
+  logout: () => pedir<void>('api/auth/logout', { method: 'POST' }),
   configuracion: () => pedir<Configuracion>('api/configuracion'),
   urlPlantilla: 'api/plantilla',
   subir: (archivo: File) => {
