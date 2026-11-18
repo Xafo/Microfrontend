@@ -325,10 +325,13 @@ public class ConfiguracionLocalTests
         Directory.CreateDirectory(dir);
         foreach (var a in Directory.GetFiles(AppContext.BaseDirectory, "appsettings*.json"))
             File.Copy(a, Path.Combine(dir, Path.GetFileName(a)));
+        // Llave propia del ambiente en otra variable (ENROLAMIENTO_DP_LLAVES_DEV), indicada en el archivo local.
+        Environment.SetEnvironmentVariable("ENROLAMIENTO_DP_LLAVES_DEV_PRUEBA", Utilidades.LlavePrueba);
         File.WriteAllText(Path.Combine(dir, "appsettings.Development.local.json"),
-            """{ "Correo": { "Remitente": "dev@example.test" }, "Oracle": { "DataSource": "h:1521/s", "Usuario": "u", "Clave": "c" } }""");
+            """{ "Enlaces": { "VariableEntornoLlaves": "ENROLAMIENTO_DP_LLAVES_DEV_PRUEBA" }, "Correo": { "Remitente": "dev@example.test" }, "Oracle": { "DataSource": "h:1521/s", "Usuario": "u", "Clave": "c" } }""");
         using var f = new Fabrica { Ambiente = "Development" };
-        using var conRaiz = f.WithWebHostBuilder(b => b.UseContentRoot(dir));
+        // UseSetting de la fábrica tiene prioridad sobre los JSON: se quita la variable de llave para que mande el archivo local.
+        using var conRaiz = f.WithWebHostBuilder(b => { b.UseContentRoot(dir); b.UseSetting("Enlaces:VariableEntornoLlaves", null); });
         // WithWebHostBuilder crea otra fábrica: se inicia sesión a mano.
         var cli = conRaiz.CreateClient();
         cli.DefaultRequestHeaders.Add("X-Solicitud", "1");
@@ -336,5 +339,20 @@ public class ConfiguracionLocalTests
         var c = await cli.GetFromJsonAsync<JsonElement>("/api/configuracion");
         Assert.Equal("dev@example.test", c.GetProperty("remitente").GetString());
         Assert.Equal("https://d3322rrb6yrsp3.cloudfront.net/", c.GetProperty("urlPublicaBase").GetString());
+    }
+}
+
+
+public class SubrutaIisTests
+{
+    [Fact]
+    public async Task Aplicacion_en_subruta_sin_barra_final_redirige_con_barra()
+    {
+        using var f = new Fabrica();
+        f.Server.BaseAddress = new Uri("http://localhost/EnvioEnlaces/");
+        var c = f.Server.CreateClient();
+        var r = await c.GetAsync("http://localhost/EnvioEnlaces");
+        Assert.Equal(HttpStatusCode.Redirect, r.StatusCode);
+        Assert.Equal("/EnvioEnlaces/", r.Headers.Location!.OriginalString);
     }
 }

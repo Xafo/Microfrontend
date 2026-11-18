@@ -1,0 +1,17 @@
+{
+  "Enlaces": {
+    "VariableEntornoLlaves": "ENROLAMIENTO_DP_LLAVES_STG"
+  },
+  "Login": {
+    "Usuario": "operador",
+    "ClaveHash": "PEGAR_AQUI_EL_HASH_DE_generar-clave"
+  },
+  "Correo": {
+    "Remitente": "REMITENTE_STG@ficohsa.com"
+  },
+  "Oracle": {
+    "DataSource": "HOST_ORACLE_STG:1521/SERVICIO_STG",
+    "Usuario": "USUARIO_STG",
+    "Clave": "CLAVE_STG"
+  }
+}

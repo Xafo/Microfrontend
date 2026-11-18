@@ -120,7 +120,9 @@ Valores que deben completar en cada `appsettings.{Ambiente}.json` (hoy tienen ma
 - `Oracle:Usuario` y `Oracle:Clave` → **recomendado por variables de entorno** del sitio IIS (`Oracle__Usuario`, `Oracle__Clave`) en lugar del archivo. Las variables de entorno tienen prioridad sobre el JSON.
 - `Correo:ImagenEncabezadoUrl` / `Correo:ImagenPieUrl` → URLs **HTTPS públicas** de las imágenes de encabezado y pie (el cliente de correo las descarga). Vacío = sin imagen.
 
-**Probar contra Oracle DEV desde su PC:** copie `appsettings.Development.local.json.ejemplo` como `appsettings.Development.local.json`, complete sus datos y ejecute `dotnet run --launch-profile DEV`. Ese archivo lo ignora Git y no se copia al publicar.
+**Ejecutar desde una PC contra Oracle DEV, STG o PROD:** ver **[docs/EJECUTAR-DESDE-PC.md](docs/EJECUTAR-DESDE-PC.md)** (perfiles `DEV`, `STG` y `PROD`, archivo `appsettings.{Ambiente}.local.json` y llave `ENROLAMIENTO_DP_LLAVES_{DEV|STG|PROD}`).
+
+**Instalar en IIS:** ver **[docs/INSTALAR-IIS.md](docs/INSTALAR-IIS.md)**.
 
 La aplicación **no arranca** si falta algo crítico: llaves, remitente válido, credenciales Oracle o URL base HTTPS. Así no hay modos silenciosos.
 
@@ -143,18 +145,14 @@ dotnet Enrolamiento.EnvioCorreos.Api.dll generar-llave --rotar
 - El valor es un secreto: no va en Git, en appsettings ni en logs. Guárdenlo en la configuración del sitio o del Application Pool y respáldenlo en su bóveda de secretos.
 - El backend del formulario necesita **la misma** variable, el mismo `NombreAplicacion` (`Ficohsa.EnrolamientoHN`) y la librería `Enrolamiento.Enlaces` (ver [docs/INTEGRACION-FORMULARIO.md](docs/INTEGRACION-FORMULARIO.md)).
 
-## Desarrollo local
+## Ejecutar
 
-```bash
-cd web && npm ci && npm run build          # compila el frontend a wwwroot
-cd ../src/Enrolamiento.EnvioCorreos.Api
-export ENROLAMIENTO_DP_LLAVES=$(dotnet run -- generar-llave)
-dotnet run --launch-profile Local          # http://localhost:5180
-```
+- **Desde una PC contra Oracle DEV, STG o PROD:** [docs/EJECUTAR-DESDE-PC.md](docs/EJECUTAR-DESDE-PC.md)
+- **En IIS (frontend y backend en un solo sitio):** [docs/INSTALAR-IIS.md](docs/INSTALAR-IIS.md)
+- **Modo de desarrollo sin base de datos** (perfil `Local`, envío simulado): requiere la variable `ENROLAMIENTO_DP_LLAVES` y el login en `dotnet user-secrets`. Un correo que empiece con `falla` simula un error.
+- **Frontend con recarga automática:** con la API corriendo, `cd web` y luego `npm run dev` (http://localhost:5173).
 
-Con `npm run dev` (puerto 5173) el frontend usa la API local mediante proxy. En modo Simulado, un correo que empiece con `falla` simula un error para probar los reintentos.
-
-Pruebas: `dotnet test` (121 pruebas).
+Pruebas: `dotnet test`.
 
 ## Publicación en IIS
 

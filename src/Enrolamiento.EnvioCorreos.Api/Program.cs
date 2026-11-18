@@ -110,6 +110,17 @@ app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.Use(async (ctx, next) =>
 {
+    // Publicado como aplicación de IIS (/EnvioEnlaces): sin "/" final las rutas relativas de la pantalla
+    // apuntarían a la raíz del servidor. Se redirige a /EnvioEnlaces/.
+    if (ctx.Request.PathBase.HasValue && !ctx.Request.Path.HasValue)
+    {
+        ctx.Response.Redirect(ctx.Request.PathBase + "/" + ctx.Request.QueryString);
+        return;
+    }
+    await next();
+});
+app.Use(async (ctx, next) =>
+{
     // Respuestas con enlaces y datos personales: nunca en cachés compartidas.
     ctx.Response.OnStarting(() =>
     {

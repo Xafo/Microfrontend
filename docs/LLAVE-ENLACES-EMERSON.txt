@@ -33,16 +33,16 @@ Para STG y PROD repita el paso con llave-stg.txt y llave-prod.txt.
 
 PASO 2. USARLA EN NUESTRO PORTAL
 --------------------------------
-a) Solo para la terminal actual (pruebas):
+a) Ejecutando desde su PC (perfiles DEV/STG/PROD): una variable por ambiente.
+   Abra una terminal nueva despues:
 
-    $env:ENROLAMIENTO_DP_LLAVES = (Get-Content .\llave-dev.txt -Raw).Trim()
-    dotnet run --no-build --launch-profile DEV
+    [Environment]::SetEnvironmentVariable("ENROLAMIENTO_DP_LLAVES_DEV", (Get-Content .\llave-dev.txt -Raw).Trim(), "User")
+    dotnet run --launch-profile DEV
 
-b) Fija en su usuario de Windows (abra una terminal nueva despues):
+   Para STG y PROD: ENROLAMIENTO_DP_LLAVES_STG y ENROLAMIENTO_DP_LLAVES_PROD.
+   Guia completa: docs\EJECUTAR-DESDE-PC.md
 
-    [Environment]::SetEnvironmentVariable("ENROLAMIENTO_DP_LLAVES", (Get-Content .\llave-dev.txt -Raw).Trim(), "User")
-
-c) En el servidor IIS, en el web.config publicado:
+b) En el servidor IIS (variable sin sufijo, ver docs\INSTALAR-IIS.md), en el web.config publicado:
 
     <aspNetCore ...>
       <environmentVariables>

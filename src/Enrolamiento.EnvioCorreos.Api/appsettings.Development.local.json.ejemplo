@@ -1,4 +1,7 @@
 {
+  "Enlaces": {
+    "VariableEntornoLlaves": "ENROLAMIENTO_DP_LLAVES_DEV"
+  },
   "Login": {
     "Usuario": "operador",
     "ClaveHash": "PEGAR_AQUI_EL_HASH_DE_generar-clave"
