@@ -91,7 +91,6 @@ public sealed class LectorDestinatarios(IOptions<CargaOptions> carga, ValidadorD
                 break;
             }
 
-            var sumaCruda = Celda(r, Columnas.SumaAsegurada);
             var fila = new FilaLeida
             {
                 NumeroFila = f + 1,
@@ -99,15 +98,10 @@ public sealed class LectorDestinatarios(IOptions<CargaOptions> carga, ValidadorD
                 NombreContratante = ConversorValores.ATexto(Celda(r, Columnas.NombreContratante)),
                 NombreCliente = ConversorValores.ATexto(Celda(r, Columnas.NombreCliente)),
                 NumeroPoliza = ConversorValores.ATexto(Celda(r, Columnas.NumeroPoliza)),
-                SumaAseguradaTexto = ConversorValores.ATexto(sumaCruda),
-                SumaAsegurada = ConversorValores.ASuma(sumaCruda),
                 Correo = ConversorValores.ATexto(Celda(r, Columnas.Correo)),
             };
 
-            if (fila.SumaAsegurada is null)
-                fila.Errores.Add(new("SumaAsegurada", fila.SumaAseguradaTexto.Length == 0 ? "Es obligatorio." : $"'{fila.SumaAseguradaTexto}' no es un monto válido."));
-            foreach (var e in validador.Validar(fila.ADatos()))
-                if (!(e.Campo == "SumaAsegurada" && fila.SumaAsegurada is null)) fila.Errores.Add(e);
+            fila.Errores.AddRange(validador.Validar(fila.ADatos()));
 
             if (string.IsNullOrWhiteSpace(fila.NombreCliente)) fila.Errores.Add(new("NombreCliente", "Es obligatorio."));
             else if (fila.NombreCliente.Length > _o.LongitudMaximaNombreCliente) fila.Errores.Add(new("NombreCliente", $"Supera {_o.LongitudMaximaNombreCliente} caracteres."));

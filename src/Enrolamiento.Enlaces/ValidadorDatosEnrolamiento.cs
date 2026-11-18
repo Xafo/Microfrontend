@@ -4,7 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace Enrolamiento.Enlaces;
 
-/// <summary>Reglas de servidor para los cinco campos. Se aplican al generar y otra vez al validar.</summary>
+/// <summary>Reglas de servidor para los cuatro campos. Se aplican al generar y otra vez al validar.</summary>
 public sealed partial class ValidadorDatosEnrolamiento(IOptions<EnlacesOptions> opciones)
 {
     private readonly EnlacesOptions _o = opciones.Value;
@@ -22,13 +22,6 @@ public sealed partial class ValidadorDatosEnrolamiento(IOptions<EnlacesOptions> 
 
         if (Texto(errores, "NumeroPoliza", d.NumeroPoliza, _o.LongitudMaximaNumeroPoliza) && !PolizaRegex().IsMatch(d.NumeroPoliza))
             errores.Add(new("NumeroPoliza", "Solo se permiten letras, números, guion y barra."));
-
-        if (d.SumaAsegurada <= 0)
-            errores.Add(new("SumaAsegurada", "Debe ser mayor que cero."));
-        else if (d.SumaAsegurada > _o.SumaAseguradaMaxima)
-            errores.Add(new("SumaAsegurada", $"Supera el máximo permitido ({_o.SumaAseguradaMaxima:N2})."));
-        else if (d.SumaAsegurada.Scale > _o.DecimalesMaximosSuma && decimal.Round(d.SumaAsegurada, _o.DecimalesMaximosSuma) != d.SumaAsegurada)
-            errores.Add(new("SumaAsegurada", $"Máximo {_o.DecimalesMaximosSuma} decimales; no se redondea."));
 
         if (Texto(errores, "Correo", d.Correo, _o.LongitudMaximaCorreo) && !EsCorreoValido(d.Correo))
             errores.Add(new("Correo", "Formato de correo no válido."));

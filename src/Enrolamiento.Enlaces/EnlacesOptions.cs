@@ -37,6 +37,4 @@ public sealed class EnlacesOptions
     public int LongitudMaximaNombreContratante { get; set; } = 200;
     public int LongitudMaximaNumeroPoliza { get; set; } = 30;
     public int LongitudMaximaCorreo { get; set; } = 254;
-    public decimal SumaAseguradaMaxima { get; set; } = 999_999_999_999.99m;
-    public int DecimalesMaximosSuma { get; set; } = 2;
 }

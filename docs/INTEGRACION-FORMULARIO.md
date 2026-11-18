@@ -22,11 +22,11 @@ https://d3322rrb6yrsp3.cloudfront.net/?datos=CfDJ8EQi1Nr21YFLmveTzNdB8HEL0_...
 
 - `datos` está **cifrado y firmado** (ASP.NET Core Data Protection: AES-256-CBC + HMAC-SHA256) y **vence a las 48 h**.
 - No lleva ningún dato en texto claro. React **no puede** leerlo; solo el backend, con la llave.
-- Dentro van estos 5 campos:
+- Dentro van estos 4 campos:
 
 ```json
 { "version": 1, "tipoFormulario": "61", "nombreContratante": "CONTRATANTE DE PRUEBA",
-  "numeroPoliza": "1000000332", "sumaAsegurada": 2500000.00, "correo": "cliente@dominio.com" }
+  "numeroPoliza": "1000000332", "correo": "cliente@dominio.com" }
 ```
 
 ---
@@ -41,7 +41,7 @@ Cliente abre https://host/?datos=XXX
    │                                                                          │ ValidarContenido(datos)
    │◄──────────── 200 { tipoFormulario, nombreContratante, numeroPoliza, ... } ┘  (o 400 genérico)
    ▼
-Precarga el formulario: tipo, contratante, póliza y suma NO editables; correo precargado
+Precarga el formulario: tipo, contratante y póliza NO editables; correo precargado
    ▼
 OTP ► guardar ► el backend vuelve a imponer los valores del enlace (no confía en el navegador)
 ```
@@ -105,7 +105,6 @@ app.MapPost("/api/enlace/validar", (ValidarEnlaceRequest req, IEnlaceProtegidoSe
         tipoFormulario = r.Datos!.TipoFormulario,
         nombreContratante = r.Datos.NombreContratante,
         numeroPoliza = r.Datos.NumeroPoliza,
-        sumaAsegurada = r.Datos.SumaAsegurada,   // decimal, sin redondeo
         correo = r.Datos.Correo,
         expiraEnUtc = r.ExpiraEnUtc,
     });
@@ -137,7 +136,7 @@ useEffect(() => {
       if (!r.ok) throw new Error((await r.json()).detail ?? 'Enlace no válido')
       return r.json()
     })
-    .then((ctx) => precargarFormulario(ctx))   // tipo/contratante/póliza/suma en solo lectura
+    .then((ctx) => precargarFormulario(ctx))   // tipo/contratante/póliza en solo lectura
     .catch((e) => setError(e.message))
 }, [])
 ```
@@ -149,7 +148,7 @@ Si el usuario recarga la página después de `replaceState`, ya no tendrá `?dat
 ## 6. Reglas de seguridad (obligatorias)
 
 1. Descifrar **solo en el backend**. Nunca en React, y nunca exponer un endpoint genérico que descifre cualquier texto.
-2. Tipo, contratante, póliza y suma se muestran **no editables**, y al guardar o enviar el backend **vuelve a imponer** los valores del enlace; no se aceptan los que mande el navegador.
+2. Tipo, contratante y póliza se muestran **no editables**, y al guardar o enviar el backend **vuelve a imponer** los valores del enlace; no se aceptan los que mande el navegador.
 3. Un enlace válido **no** prueba que el OTP se verificó. El OTP se vincula con el contexto de la solicitud.
 4. El enlace es **reutilizable hasta que vence** y no se puede revocar uno solo (no hay tabla de invitaciones).
 5. No registrar en logs la URL completa, el parámetro `datos` ni la respuesta del endpoint.
@@ -165,7 +164,7 @@ Si el usuario recarga la página después de `replaceState`, ya no tendrá `?dat
 
 | Caso | Resultado esperado |
 |---|---|
-| Enlace válido | Precarga los 5 campos exactos (acentos, ceros a la izquierda y decimales incluidos) |
+| Enlace válido | Precarga los 4 campos exactos (acentos y ceros a la izquierda incluidos) |
 | Cambiar un carácter de `datos` | 400 genérico |
 | Enlace generado con otra llave (por ejemplo, de LOCAL) | 400 genérico |
 | Enlace de más de 48 h | 400 genérico |

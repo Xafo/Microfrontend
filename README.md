@@ -37,9 +37,9 @@ Hoja `Destinatarios` (o la primera hoja que tenga estos encabezados). El orden d
 | Nombre del Contratante | Obligatorio, máx. 200 |
 | Nombre del Cliente | Obligatorio, máx. 200 (saludo del correo; no viaja en el enlace) |
 | Numero de Poliza | Obligatorio, máx. 30, letras/números/`-`/`/`; conserva ceros a la izquierda |
-| Suma Asegurada | > 0, máx. 2 decimales, sin redondeo. Acepta `2500000`, `2,500,000.00`, `2.500.000,00` |
 | Correo | Un solo correo válido |
 | Enlace | Opcional; se ignora (lo genera el servidor) |
+| Suma Asegurada | Ya no se usa. Si viene en un archivo anterior, se ignora |
 
 CSV: UTF-8, UTF-16 o Windows-1252 (el "CSV" de Excel), separador `;`, `,` o tabulador. Filas duplicadas (mismo tipo, póliza y correo) se marcan con error.
 

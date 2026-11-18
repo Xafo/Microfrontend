@@ -38,12 +38,6 @@ public class ValidadorTests
     [Theory] [InlineData("")] [InlineData("12 34")] [InlineData("12;DROP")]
     public void Poliza_invalida(string p) => Assert.Contains(Validar(Utilidades.Datos(poliza: p)), e => e.Campo == "NumeroPoliza");
 
-    [Theory] [InlineData("0")] [InlineData("-5")] [InlineData("1.234")] [InlineData("1000000000000")]
-    public void Suma_invalida(string s) => Assert.Contains(Validar(Utilidades.Datos(suma: decimal.Parse(s, System.Globalization.CultureInfo.InvariantCulture))), e => e.Campo == "SumaAsegurada");
-
-    [Theory] [InlineData("1.20")] [InlineData("1.200")] [InlineData("2500000")]
-    public void Suma_valida(string s) => Assert.Empty(Validar(Utilidades.Datos(suma: decimal.Parse(s, System.Globalization.CultureInfo.InvariantCulture))));
-
     [Theory] [InlineData("sin-arroba")] [InlineData("a@b")] [InlineData("Juan <a@b.com>")] [InlineData("a b@c.com")] [InlineData("a@b.com,c@d.com")]
     public void Correo_invalido(string c) => Assert.Contains(Validar(Utilidades.Datos(correo: c)), e => e.Campo == "Correo");
 

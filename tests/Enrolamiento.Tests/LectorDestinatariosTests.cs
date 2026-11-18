@@ -25,13 +25,12 @@ public class LectorDestinatariosTests
 
         var a = r.Filas[0];
         Assert.Equal(2, a.NumeroFila);
-        Assert.Equal(("61", "CONTRATANTE DE PRUEBA", "José Pérez", "1000000332", 2500000m, "cliente@example.test"),
-            (a.TipoFormulario, a.NombreContratante, a.NombreCliente, a.NumeroPoliza, a.SumaAsegurada!.Value, a.Correo));
+        Assert.Equal(("61", "CONTRATANTE DE PRUEBA", "José Pérez", "1000000332", "cliente@example.test"),
+            (a.TipoFormulario, a.NombreContratante, a.NombreCliente, a.NumeroPoliza, a.Correo));
         Assert.Empty(a.Errores);
 
         var b = r.Filas[1];
         Assert.Equal("0001234", b.NumeroPoliza);            // ceros a la izquierda conservados
-        Assert.Equal(1234567.89m, b.SumaAsegurada);
         Assert.Equal("Compañía Ñandú S.A.", b.NombreContratante);
         Assert.Empty(b.Errores);
 
@@ -49,10 +48,8 @@ public class LectorDestinatariosTests
         Assert.Equal(2, r.Filas.Count);
         Assert.Equal("Pérez; Hijos & Cía", r.Filas[0].NombreContratante);
         Assert.Equal("0001000332", r.Filas[0].NumeroPoliza);
-        Assert.Equal(2500000.00m, r.Filas[0].SumaAsegurada);
         Assert.Empty(r.Filas[0].Errores);
         Assert.Equal("Dice \"hola\"", r.Filas[1].NombreContratante);
-        Assert.Equal(1500.5m, r.Filas[1].SumaAsegurada);
         Assert.Equal(4, r.Filas[1].NumeroFila);
     }
 
@@ -62,7 +59,16 @@ public class LectorDestinatariosTests
         var r = Leer("csv_1252.csv");
         var f = Assert.Single(r.Filas);
         Assert.Equal("Compañía Ñandú", f.NombreContratante);
-        Assert.Equal(2500000m, f.SumaAsegurada);
+        Assert.Empty(f.Errores);
+    }
+
+    [Fact]
+    public void Archivo_sin_columna_suma_asegurada_se_acepta()
+    {
+        using var sp = Utilidades.Crear();
+        var lector = new LectorDestinatarios(Options.Create(new CargaOptions()), sp.GetRequiredService<ValidadorDatosEnrolamiento>());
+        var csv = "Tipo de Formulario;Nombre del Contratante;Nombre del Cliente;Numero de Poliza;Correo\n61;Empresa;Ana;123;ana@example.test\n"u8.ToArray();
+        var f = Assert.Single(lector.Leer("a.csv", csv).Filas);
         Assert.Empty(f.Errores);
     }
 
@@ -103,24 +109,6 @@ public class LectorDestinatariosTests
         Assert.Empty(r.Filas);
         Assert.Contains(r.ErroresArchivo, e => e.Contains("no tiene filas"));
     }
-
-    [Theory]
-    [InlineData("2500000", "2500000")]
-    [InlineData("2500000.50", "2500000.50")]
-    [InlineData("2,500,000.50", "2500000.50")]
-    [InlineData("2.500.000,50", "2500000.50")]
-    [InlineData("2500000,50", "2500000.50")]
-    [InlineData("1,500", "1500")]
-    [InlineData("L 1,500.25", "1500.25")]
-    [InlineData("HNL 10", "10")]
-    [InlineData("$1.5", "1.5")]
-    [InlineData("1.234", "1.234")]
-    public void Convierte_montos(string texto, string esperado) =>
-        Assert.Equal(decimal.Parse(esperado, System.Globalization.CultureInfo.InvariantCulture), ConversorValores.ASuma(texto));
-
-    [Theory]
-    [InlineData("")] [InlineData("abc")] [InlineData("1,2,3")] [InlineData("1.2.3,4.5")] [InlineData("-5")] [InlineData("12,34,567")] [InlineData("1e5")]
-    public void Rechaza_montos_ambiguos_o_invalidos(string texto) => Assert.Null(ConversorValores.ASuma(texto));
 
     [Theory]
     [InlineData(1000000332d, "1000000332")]
