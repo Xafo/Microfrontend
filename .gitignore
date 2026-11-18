@@ -10,3 +10,6 @@ appsettings.*.local.json
 .env
 .env.*
 *.tsbuildinfo
+
+# Llaves generadas localmente: nunca al repositorio
+llave-*.txt
