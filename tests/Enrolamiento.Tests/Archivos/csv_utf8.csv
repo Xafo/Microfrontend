@@ -1,4 +1,4 @@
 Tipo de Formulario;Nombre del Contratante;Nombre del Cliente;Numero de Poliza;Suma Asegurada;Correo;Enlace
-61;"Pérez; Hijos & Cía";José Pérez;0001000332;"2.500.000,00";cliente@example.test;
+SPN-F.GTP-61;"Pérez; Hijos & Cía";José Pérez;0001000332;"2.500.000,00";cliente@example.test;
 ;;;;;;
-161;"Dice ""hola""";Ana;A-12/3;1500,5;ana@example.test;
+  spn-f.gtp-161 ;"Dice ""hola""";Ana;A-12/3;1500,5;ana@example.test;

@@ -1,4 +1,3 @@
-using System.Globalization;
 using Enrolamiento.EnvioCorreos.Api.Lotes;
 
 namespace Enrolamiento.EnvioCorreos.Api.Endpoints;
@@ -24,8 +23,6 @@ public static class LoteDto
                     nombreContratante = f.Datos.NombreContratante,
                     nombreCliente = f.Datos.NombreCliente,
                     numeroPoliza = f.Datos.NumeroPoliza,
-                    sumaAsegurada = f.Datos.SumaAsegurada?.ToString(CultureInfo.InvariantCulture),
-                    sumaAseguradaTexto = f.Datos.SumaAseguradaTexto,
                     correo = f.Datos.Correo,
                     errores = f.Datos.Errores.Select(e => new { campo = e.Campo, mensaje = e.Mensaje }),
                     enlace = f.Enlace is null ? null : new

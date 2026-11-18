@@ -1,0 +1,112 @@
+﻿LLAVE DE CIFRADO DE LOS ENLACES DE ENROLAMIENTO
+Como generarla, usarla y entregarsela a Emerson
+================================================
+
+QUE ES
+------
+Los enlaces que enviamos (https://.../?datos=CfDJ8...) van cifrados con una llave.
+Nuestro portal la usa para CIFRAR y el backend del formulario (Emerson) la usa para DESCIFRAR.
+Los dos sitios deben tener EXACTAMENTE la misma llave, en la variable de entorno:
+
+    ENROLAMIENTO_DP_LLAVES
+
+- Una llave por ambiente: DEV, STG y PROD tienen llaves distintas.
+- Quien tiene la llave puede leer y FABRICAR enlaces validos. Tratela como una contrasena.
+
+
+PASO 1. GENERAR LA LLAVE (una sola vez por ambiente)
+----------------------------------------------------
+En PowerShell, dentro de la carpeta del proyecto:
+
+    cd "C:\...\Microfrontend\src\Enrolamiento.EnvioCorreos.Api"
+    dotnet build
+    dotnet run --no-build --no-launch-profile -- generar-llave | Out-File -Encoding ascii llave-dev.txt
+
+IMPORTANTE: use "| Out-File -Encoding ascii". En PowerShell el simbolo ">" guarda el
+archivo en UTF-16 y la llave queda inservible.
+
+(En cmd, en lugar de PowerShell:  dotnet run --no-build --no-launch-profile -- generar-llave > llave-dev.txt)
+
+El archivo llave-dev.txt contiene UNA sola linea larga de texto (Base64). Esa es la llave.
+Para STG y PROD repita el paso con llave-stg.txt y llave-prod.txt.
+
+
+PASO 2. USARLA EN NUESTRO PORTAL
+--------------------------------
+a) Ejecutando desde su PC (perfiles DEV/STG/PROD): una variable por ambiente.
+   Abra una terminal nueva despues:
+
+    [Environment]::SetEnvironmentVariable("ENROLAMIENTO_DP_LLAVES_DEV", (Get-Content .\llave-dev.txt -Raw).Trim(), "User")
+    dotnet run --launch-profile DEV
+
+   Para STG y PROD: ENROLAMIENTO_DP_LLAVES_STG y ENROLAMIENTO_DP_LLAVES_PROD.
+   Guia completa: docs\EJECUTAR-DESDE-PC.md
+
+b) En el servidor IIS (variable sin sufijo, ver docs\INSTALAR-IIS.md), en el web.config publicado:
+
+    <aspNetCore ...>
+      <environmentVariables>
+        <environmentVariable name="ENROLAMIENTO_DP_LLAVES" value="(pegar aqui la linea de llave-dev.txt)" />
+      </environmentVariables>
+    </aspNetCore>
+
+Desde este momento NO vuelva a generar una llave nueva para DEV: los enlaces ya enviados
+dejarian de funcionar y Emerson tendria que cambiarla tambien.
+
+
+PASO 3. ENTREGARSELA A EMERSON (de forma segura)
+------------------------------------------------
+SI:
+  - Por el gestor de contrasenas o boveda de la empresa (KeePass, CyberArk, Azure Key Vault, etc.).
+  - O que el administrador de IIS la cargue directamente en los dos servidores.
+NO:
+  - Por Teams, correo, WhatsApp o chat.
+  - En Git, en appsettings.json ni en capturas de pantalla.
+
+Cuando ya este configurada en los dos lados, borre el archivo llave-dev.txt de su PC.
+
+
+PASO 4. LO QUE EMERSON DEBE CONFIGURAR EN EL BACKEND DEL FORMULARIO
+-------------------------------------------------------------------
+1) La misma variable de entorno, con el mismo valor:
+       ENROLAMIENTO_DP_LLAVES = (la linea que le entregaron)
+
+2) En su appsettings.json:
+       "Enlaces": {
+         "UrlPublicaBase": "https://d3322rrb6yrsp3.cloudfront.net/",
+         "NombreAplicacion": "Ficohsa.EnrolamientoHN",
+         "VariableEntornoLlaves": "ENROLAMIENTO_DP_LLAVES"
+       }
+   NombreAplicacion debe ser IDENTICO. Si cambia una letra, no descifra.
+
+3) Referenciar el proyecto src\Enrolamiento.Enlaces de nuestro repositorio y en Program.cs:
+       builder.Services.AddEnlacesEnrolamiento(builder.Configuration);
+       var app = builder.Build();
+       app.Services.VerificarLlavesEnlaces();   // si la llave falta o esta mal, no arranca
+
+4) Para descifrar el parametro ?datos= que llega en la URL:
+       var r = enlaces.ValidarContenido(datos);   // IEnlaceProtegidoService
+       if (!r.Valido) -> responder "El enlace no es valido o ya vencio"
+       r.Datos.TipoFormulario, r.Datos.NombreContratante, r.Datos.NumeroPoliza, r.Datos.Correo
+       r.ExpiraEnUtc
+
+   Guia completa con codigo de React y backend: docs\INTEGRACION-FORMULARIO.md
+
+
+PASO 5. COMPROBAR QUE LOS DOS TIENEN LA MISMA LLAVE
+---------------------------------------------------
+1) En nuestro portal (con la llave de DEV) cargue un Excel de prueba.
+2) En "Revisar datos" -> "Ver enlace" -> "Copiar" el ENLACE CIFRADO. No hace falta enviar el correo.
+3) Paselo a Emerson: su backend debe devolver los 4 campos correctos.
+   Si responde "no valido", las llaves o el NombreAplicacion no coinciden.
+
+
+ROTAR LA LLAVE (cada 1-2 anos o si se filtro)
+---------------------------------------------
+Genere una nueva CONSERVANDO la anterior (los enlaces vigentes siguen funcionando):
+
+    $env:ENROLAMIENTO_DP_LLAVES = (Get-Content .\llave-dev.txt -Raw).Trim()
+    dotnet run --no-build --no-launch-profile -- generar-llave --rotar | Out-File -Encoding ascii llave-dev-nueva.txt
+
+Reemplace el valor en los DOS sitios (nuestro portal y el de Emerson) y reinicie ambos.
+Si la llave se filtro, genere una nueva SIN --rotar: los enlaces anteriores dejaran de servir.

@@ -26,6 +26,11 @@ public sealed class EnviadorDePrueba : IEnviadorCorreo
 
 public sealed class Fabrica : WebApplicationFactory<Program>
 {
+    public const string Usuario = "operador";
+    public const string Clave = "Clave-De-Prueba-2026";
+    // Pocas iteraciones solo para que las pruebas sean rápidas; el comando generar-clave usa 600 000.
+    public static readonly string ClaveHash = Enrolamiento.EnvioCorreos.Api.Seguridad.HashClave.Crear(Clave, 1000);
+
     public EnviadorDePrueba Enviador { get; } = new();
     public string Ambiente { get; init; } = "Local";
     public Dictionary<string, string?> Config { get; init; } = [];
@@ -36,8 +41,25 @@ public sealed class Fabrica : WebApplicationFactory<Program>
         b.UseEnvironment(Ambiente);
         b.UseSetting("Enlaces:VariableEntornoLlaves", Utilidades.Variable);
         b.UseSetting("Correo:PausaEntreEnviosMs", "0");
+        b.UseSetting("Login:Usuario", Usuario);
+        b.UseSetting("Login:ClaveHash", ClaveHash);
+        b.UseSetting("Login:IntentosPorMinuto", "1000");
         foreach (var kv in Config) b.UseSetting(kv.Key, kv.Value);
         b.ConfigureTestServices(s => s.AddSingleton<IEnviadorCorreo>(Enviador));
+    }
+
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        client.DefaultRequestHeaders.Add("X-Solicitud", "1");
+    }
+
+    /// <summary>Cliente con la sesión ya iniciada.</summary>
+    public HttpClient ClienteConSesion()
+    {
+        var c = CreateClient();
+        c.PostAsJsonAsync("/api/auth/login", new { usuario = Usuario, clave = Clave }).GetAwaiter().GetResult().EnsureSuccessStatusCode();
+        return c;
     }
 }
 
@@ -45,7 +67,7 @@ public class ApiTests : IClassFixture<Fabrica>
 {
     private readonly Fabrica _f;
     private readonly HttpClient _c;
-    public ApiTests(Fabrica f) { _f = f; _c = f.CreateClient(); }
+    public ApiTests(Fabrica f) { _f = f; _c = f.ClienteConSesion(); }
 
     internal static async Task<JsonElement> Subir(HttpClient c, string nombre, byte[] bytes, HttpStatusCode esperado = HttpStatusCode.OK)
     {
@@ -59,7 +81,7 @@ public class ApiTests : IClassFixture<Fabrica>
     }
 
     internal static byte[] Csv(params string[] filas) => System.Text.Encoding.UTF8.GetBytes(
-        "Tipo de Formulario;Nombre del Contratante;Nombre del Cliente;Numero de Poliza;Suma Asegurada;Correo\n" + string.Join("\n", filas));
+        "Tipo de Formulario;Nombre del Contratante;Nombre del Cliente;Numero de Poliza;Correo\n" + string.Join("\n", filas));
 
     internal static async Task<JsonElement> EsperarFin(HttpClient c, string id)
     {
@@ -80,18 +102,44 @@ public class ApiTests : IClassFixture<Fabrica>
         var c = await Configuracion();
         Assert.Equal("Complete su formulario de enrolamiento", c.GetProperty("asuntoPorDefecto").GetString());
         Assert.Contains("{{NombreCliente}}", c.GetProperty("cuerpoPorDefecto").GetString());
-        Assert.Equal("https://d3322rrb6yrsp3.cloudfront.net/EnrolamientoHN/", c.GetProperty("urlPublicaBase").GetString());
+        Assert.Equal("https://d3322rrb6yrsp3.cloudfront.net/", c.GetProperty("urlPublicaBase").GetString());
         Assert.Equal(48, c.GetProperty("vigenciaHoras").GetInt32());
-        Assert.Equal(["61", "62", "63", "64", "101", "102", "161"],
+        Assert.Equal(["SPN-F.GTP-61", "SPN-F.GTP-62", "SPN-F.GTP-63", "SPN-F.GTP-64", "SPN-F.GTP-101", "SPN-F.GTP-161", "COACEHL (SPN-F.GTP-102)"],
             c.GetProperty("tiposFormulario").EnumerateArray().Select(t => t.GetString()!).ToArray());
     }
 
     [Fact]
-    public async Task Descarga_plantilla_excel()
+    public async Task Descarga_plantilla_excel_con_leyenda_de_tipos_y_se_puede_volver_a_cargar()
     {
         var r = await _c.GetAsync("/api/plantilla");
         Assert.Equal(HttpStatusCode.OK, r.StatusCode);
         Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", r.Content.Headers.ContentType!.MediaType);
+        var bytes = await r.Content.ReadAsByteArrayAsync();
+
+        using var libro = new ClosedXML.Excel.XLWorkbook(new MemoryStream(bytes));
+        var hoja = libro.Worksheet("Destinatarios");
+        var textos = hoja.CellsUsed().Select(c => c.GetString()).ToList();
+        Assert.Contains("Tipos de formulario aceptados", textos);
+        Assert.Contains("COACEHL (SPN-F.GTP-102)", textos);
+        Assert.Contains("SPN-F.GTP-161", textos);
+
+        // La leyenda no se interpreta como filas de datos.
+        var lote = await Subir(_c, "plantilla.xlsx", bytes);
+        Assert.Equal(0, lote.GetProperty("resumen").GetProperty("total").GetInt32());
+    }
+
+    [Fact]
+    public async Task Tipo_agregado_en_configuracion_se_acepta_y_aparece_en_la_leyenda()
+    {
+        using var f = new Fabrica { Config = new() { ["Enlaces:TiposFormularioPermitidos:0"] = "SPN-F.GTP-61", ["Enlaces:TiposFormularioPermitidos:1"] = "SPN-F.GTP-999" } };
+        var c = f.ClienteConSesion();
+        var lote = await Subir(c, "a.csv", Csv("SPN-F.GTP-999;A;A;1;x@example.test", "SPN-F.GTP-62;B;B;2;y@example.test"));
+        var filas = lote.GetProperty("filas").EnumerateArray().ToList();
+        Assert.Equal("Lista", filas[0].GetProperty("estado").GetString());
+        Assert.Equal("Invalida", filas[1].GetProperty("estado").GetString());
+
+        using var libro = new ClosedXML.Excel.XLWorkbook(new MemoryStream(await c.GetByteArrayAsync("/api/plantilla")));
+        Assert.Contains("SPN-F.GTP-999", libro.Worksheet("Destinatarios").CellsUsed().Select(x => x.GetString()));
     }
 
     [Fact]
@@ -105,7 +153,7 @@ public class ApiTests : IClassFixture<Fabrica>
 
         var enlace = filas[0].GetProperty("enlace");
         var cifrado = enlace.GetProperty("cifrado").GetString()!;
-        Assert.StartsWith("https://d3322rrb6yrsp3.cloudfront.net/EnrolamientoHN/?datos=", cifrado);
+        Assert.StartsWith("https://d3322rrb6yrsp3.cloudfront.net/?datos=", cifrado);
         Assert.Contains("numeroPoliza=1000000332", enlace.GetProperty("referencia").GetString());
         Assert.Equal(JsonValueKind.Null, filas[2].GetProperty("enlace").ValueKind);
 
@@ -113,14 +161,14 @@ public class ApiTests : IClassFixture<Fabrica>
         var svc = _f.Services.GetRequiredService<IEnlaceProtegidoService>();
         var r = svc.ValidarContenido(QueryHelpers.ParseQuery(new Uri(cifrado).Query)["datos"]);
         Assert.True(r.Valido);
-        Assert.Equal(new DatosEnrolamiento("61", "CONTRATANTE DE PRUEBA", "1000000332", 2500000m, "cliente@example.test"), r.Datos);
+        Assert.Equal(new DatosEnrolamiento("SPN-F.GTP-61", "CONTRATANTE DE PRUEBA", "1000000332", "cliente@example.test"), r.Datos);
     }
 
     [Fact]
     public async Task Vista_previa_reemplaza_marcadores_y_es_ascii()
     {
         var c = await Configuracion();
-        var lote = await Subir(_c, "a.csv", Csv("61;Contratante;José <b>Pérez</b>;123;100;jose@example.test"));
+        var lote = await Subir(_c, "a.csv", Csv("SPN-F.GTP-61;Contratante;José <b>Pérez</b>;123;jose@example.test"));
         var r = await _c.PostAsJsonAsync($"/api/lotes/{lote.GetProperty("id")}/vista-previa",
             new { asunto = "Póliza {{NumeroPoliza}}", cuerpo = c.GetProperty("cuerpoPorDefecto").GetString() });
         var v = await r.Content.ReadFromJsonAsync<JsonElement>();
@@ -130,7 +178,7 @@ public class ApiTests : IClassFixture<Fabrica>
         Assert.True(v.GetProperty("asuntoModificado").GetBoolean());
         Assert.Contains("Jos&#233; &lt;b&gt;P&#233;rez&lt;/b&gt;", html);   // escapado y ASCII
         Assert.Contains("p&#243;liza 123", html);
-        Assert.Contains("href=\"https://d3322rrb6yrsp3.cloudfront.net/EnrolamientoHN/?datos=", html);
+        Assert.Contains("href=\"https://d3322rrb6yrsp3.cloudfront.net/?datos=", html);
         Assert.Contains("Completar formulario", html);
         Assert.All(html, ch => Assert.True(ch < 128));
     }
@@ -140,9 +188,9 @@ public class ApiTests : IClassFixture<Fabrica>
     {
         var c = await Configuracion();
         var lote = await Subir(_c, "a.csv", Csv(
-            "61;Contratante A;Cliente A;111;100;a@example.test",
-            "62;Contratante B;Cliente B;222;200.50;b@example.test",
-            "99;Inválida;X;333;1;c@example.test"));
+            "SPN-F.GTP-61;Contratante A;Cliente A;111;a@example.test",
+            "SPN-F.GTP-62;Contratante B;Cliente B;222;b@example.test",
+            "99;Inválida;X;333;c@example.test"));
         var id = lote.GetProperty("id").ToString();
         var cuerpo = c.GetProperty("cuerpoPorDefecto").GetString();
 
@@ -165,7 +213,7 @@ public class ApiTests : IClassFixture<Fabrica>
     public async Task Reintenta_solo_los_fallidos()
     {
         var c = await Configuracion();
-        var lote = await Subir(_c, "a.csv", Csv("61;A;A;1;1;ok1@example.test", "61;B;B;2;1;falla@example.test"));
+        var lote = await Subir(_c, "a.csv", Csv("SPN-F.GTP-61;A;A;1;ok1@example.test", "SPN-F.GTP-61;B;B;2;falla@example.test"));
         var id = lote.GetProperty("id").ToString();
         await _c.PostAsJsonAsync($"/api/lotes/{id}/envio", new { asunto = "Asunto", cuerpo = c.GetProperty("cuerpoPorDefecto").GetString() });
         var fin = await EsperarFin(_c, id);
@@ -186,7 +234,7 @@ public class ApiTests : IClassFixture<Fabrica>
     [InlineData("Asunto {{Enlace}}", "<p>{{Enlace}}</p>")]
     public async Task Rechaza_plantilla_invalida(string asunto, string cuerpo)
     {
-        var lote = await Subir(_c, "a.csv", Csv("61;A;A;1;1;x@example.test"));
+        var lote = await Subir(_c, "a.csv", Csv("SPN-F.GTP-61;A;A;1;x@example.test"));
         var r = await _c.PostAsJsonAsync($"/api/lotes/{lote.GetProperty("id")}/envio", new { asunto, cuerpo });
         Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await _c.GetAsync($"/api/lotes/{lote.GetProperty("id")}")).StatusCode);
@@ -208,7 +256,7 @@ public class ApiTests : IClassFixture<Fabrica>
     [Fact]
     public async Task Envio_exige_json()
     {
-        var lote = await Subir(_c, "a.csv", Csv("61;A;A;1;1;x@example.test"));
+        var lote = await Subir(_c, "a.csv", Csv("SPN-F.GTP-61;A;A;1;x@example.test"));
         var r = await _c.PostAsync($"/api/lotes/{lote.GetProperty("id")}/envio", new FormUrlEncodedContent([new("asunto", "x")]));
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, r.StatusCode);
     }
@@ -248,9 +296,9 @@ public class ArranqueTests
     }
 
     [Theory]
-    [InlineData("Development", "https://d3322rrb6yrsp3.cloudfront.net/EnrolamientoHN/")]
-    [InlineData("Staging", "https://d1i4s8s51j1tuu.cloudfront.net/EnrolamientoHN/")]
-    [InlineData("Production", "https://seguros.ficohsa.com/EnrolamientoHN/")]
+    [InlineData("Development", "https://d3322rrb6yrsp3.cloudfront.net/")]
+    [InlineData("Staging", "https://d1i4s8s51j1tuu.cloudfront.net/")]
+    [InlineData("Production", "https://seguros.ficohsa.com/")]
     public async Task Url_base_por_ambiente(string ambiente, string url)
     {
         using var f = new Fabrica
@@ -262,8 +310,49 @@ public class ArranqueTests
                 ["Oracle:DataSource"] = "host:1521/servicio", ["Oracle:Usuario"] = "u", ["Oracle:Clave"] = "c",
             },
         };
-        var c = await f.CreateClient().GetFromJsonAsync<JsonElement>("/api/configuracion");
+        var c = await f.ClienteConSesion().GetFromJsonAsync<JsonElement>("/api/configuracion");
         Assert.Equal(url, c.GetProperty("urlPublicaBase").GetString());
         Assert.Equal("Oracle", c.GetProperty("modoEnvio").GetString());
+    }
+}
+
+public class ConfiguracionLocalTests
+{
+    [Fact]
+    public async Task Archivo_local_de_credenciales_se_aplica()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "cfg-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        foreach (var a in Directory.GetFiles(AppContext.BaseDirectory, "appsettings*.json"))
+            File.Copy(a, Path.Combine(dir, Path.GetFileName(a)));
+        // Llave propia del ambiente en otra variable (ENROLAMIENTO_DP_LLAVES_DEV), indicada en el archivo local.
+        Environment.SetEnvironmentVariable("ENROLAMIENTO_DP_LLAVES_DEV_PRUEBA", Utilidades.LlavePrueba);
+        File.WriteAllText(Path.Combine(dir, "appsettings.Development.local.json"),
+            """{ "Enlaces": { "VariableEntornoLlaves": "ENROLAMIENTO_DP_LLAVES_DEV_PRUEBA" }, "Correo": { "Remitente": "dev@example.test" }, "Oracle": { "DataSource": "h:1521/s", "Usuario": "u", "Clave": "c" } }""");
+        using var f = new Fabrica { Ambiente = "Development" };
+        // UseSetting de la fábrica tiene prioridad sobre los JSON: se quita la variable de llave para que mande el archivo local.
+        using var conRaiz = f.WithWebHostBuilder(b => { b.UseContentRoot(dir); b.UseSetting("Enlaces:VariableEntornoLlaves", null); });
+        // WithWebHostBuilder crea otra fábrica: se inicia sesión a mano.
+        var cli = conRaiz.CreateClient();
+        cli.DefaultRequestHeaders.Add("X-Solicitud", "1");
+        (await cli.PostAsJsonAsync("/api/auth/login", new { usuario = Fabrica.Usuario, clave = Fabrica.Clave })).EnsureSuccessStatusCode();
+        var c = await cli.GetFromJsonAsync<JsonElement>("/api/configuracion");
+        Assert.Equal("dev@example.test", c.GetProperty("remitente").GetString());
+        Assert.Equal("https://d3322rrb6yrsp3.cloudfront.net/", c.GetProperty("urlPublicaBase").GetString());
+    }
+}
+
+
+public class SubrutaIisTests
+{
+    [Fact]
+    public async Task Aplicacion_en_subruta_sin_barra_final_redirige_con_barra()
+    {
+        using var f = new Fabrica();
+        f.Server.BaseAddress = new Uri("http://localhost/EnvioEnlaces/");
+        var c = f.Server.CreateClient();
+        var r = await c.GetAsync("http://localhost/EnvioEnlaces");
+        Assert.Equal(HttpStatusCode.Redirect, r.StatusCode);
+        Assert.Equal("/EnvioEnlaces/", r.Headers.Location!.OriginalString);
     }
 }

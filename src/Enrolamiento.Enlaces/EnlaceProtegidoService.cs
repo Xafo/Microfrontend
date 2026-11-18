@@ -58,7 +58,7 @@ public sealed class EnlaceProtegidoService : IEnlaceProtegidoService
 
         var expira = _reloj.GetUtcNow().AddHours(_o.VigenciaHoras);
         var contenido = new ContenidoV1(VersionContrato, datos.TipoFormulario, datos.NombreContratante,
-            datos.NumeroPoliza, datos.SumaAsegurada, datos.Correo);
+            datos.NumeroPoliza, datos.Correo);
         var protegido = _protector.Protect(JsonSerializer.SerializeToUtf8Bytes(contenido, Json), expira);
         var url = new Uri(QueryHelpers.AddQueryString(_base.AbsoluteUri, _o.NombreParametro, WebEncoders.Base64UrlEncode(protegido)));
 
@@ -84,7 +84,7 @@ public sealed class EnlaceProtegidoService : IEnlaceProtegidoService
             var c = JsonSerializer.Deserialize<ContenidoV1>(plano, Json);
             if (c is null || c.Version != VersionContrato) return ResultadoValidacion.Rechazo(MotivoRechazo.InvalidoOVencido);
 
-            var datos = new DatosEnrolamiento(c.TipoFormulario, c.NombreContratante, c.NumeroPoliza, c.SumaAsegurada, c.Correo);
+            var datos = new DatosEnrolamiento(c.TipoFormulario, c.NombreContratante, c.NumeroPoliza, c.Correo);
             if (_validador.Validar(datos).Count > 0) return ResultadoValidacion.Rechazo(MotivoRechazo.InvalidoOVencido);
 
             return ResultadoValidacion.Ok(datos, expira, c.Version);
@@ -101,7 +101,6 @@ public sealed class EnlaceProtegidoService : IEnlaceProtegidoService
             ["tipoFormulario"] = d.TipoFormulario,
             ["nombreContratante"] = d.NombreContratante,
             ["numeroPoliza"] = d.NumeroPoliza,
-            ["sumaAsegurada"] = d.SumaAsegurada.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["correo"] = d.Correo,
         }));
 
@@ -111,6 +110,5 @@ public sealed class EnlaceProtegidoService : IEnlaceProtegidoService
         [property: JsonRequired] string TipoFormulario,
         [property: JsonRequired] string NombreContratante,
         [property: JsonRequired] string NumeroPoliza,
-        [property: JsonRequired] decimal SumaAsegurada,
         [property: JsonRequired] string Correo);
 }

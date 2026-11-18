@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react'
-import { etiquetaCampo, formatoMonto } from '../formato'
+import { etiquetaCampo } from '../formato'
 import type { Lote } from '../tipos'
 import { Aviso, EstadoChip, Tarjeta } from './Comunes'
 import { DetalleEnlace } from './DetalleEnlace'
@@ -58,12 +58,12 @@ export function PasoRevision({ lote, onContinuar, onNuevo }: { lote: Lote; onCon
           <thead>
             <tr>
               <th>Fila</th><th>Tipo</th><th>Nombre del contratante</th><th>Nombre del cliente</th>
-              <th>Número de póliza</th><th className="num">Suma asegurada</th><th>Correo</th><th>Estado</th><th>Enlace</th>
+              <th>Número de póliza</th><th>Correo</th><th>Estado</th><th>Enlace</th>
             </tr>
           </thead>
           <tbody>
             {filas.length === 0 && (
-              <tr><td colSpan={9} className="vacio">No hay filas en este filtro.</td></tr>
+              <tr><td colSpan={8} className="vacio">No hay filas en este filtro.</td></tr>
             )}
             {filas.map((f) => {
               const conError = (campo: string) => f.errores.some((e) => e.campo === campo) ? 'celda-error' : ''
@@ -75,7 +75,6 @@ export function PasoRevision({ lote, onContinuar, onNuevo }: { lote: Lote; onCon
                     <td className={conError('NombreContratante')}>{f.nombreContratante || '—'}</td>
                     <td className={conError('NombreCliente')}>{f.nombreCliente || '—'}</td>
                     <td className={conError('NumeroPoliza')}>{f.numeroPoliza || '—'}</td>
-                    <td className={`num ${conError('SumaAsegurada')}`}>{f.sumaAsegurada ? formatoMonto(f.sumaAsegurada) : f.sumaAseguradaTexto || '—'}</td>
                     <td className={conError('Correo')}>{f.correo || '—'}</td>
                     <td><EstadoChip estado={f.estado} /></td>
                     <td>
@@ -90,7 +89,7 @@ export function PasoRevision({ lote, onContinuar, onNuevo }: { lote: Lote; onCon
                   {f.errores.length > 0 && (
                     <tr className="fila-detalle fila-invalida">
                       <td />
-                      <td colSpan={8}>
+                      <td colSpan={7}>
                         <ul className="lista-errores">
                           {f.errores.map((e, i) => <li key={i}><strong>{etiquetaCampo[e.campo] ?? e.campo}:</strong> {e.mensaje}</li>)}
                         </ul>
@@ -98,7 +97,7 @@ export function PasoRevision({ lote, onContinuar, onNuevo }: { lote: Lote; onCon
                     </tr>
                   )}
                   {abierta === f.numeroFila && f.enlace && (
-                    <tr className="fila-detalle"><td /><td colSpan={8}><DetalleEnlace enlace={f.enlace} /></td></tr>
+                    <tr className="fila-detalle"><td /><td colSpan={7}><DetalleEnlace enlace={f.enlace} /></td></tr>
                   )}
                 </Fragment>
               )

@@ -31,8 +31,6 @@ export interface Fila {
   nombreContratante: string
   nombreCliente: string
   numeroPoliza: string
-  sumaAsegurada: string | null
-  sumaAseguradaTexto: string
   correo: string
   errores: { campo: string; mensaje: string }[]
   enlace: Enlace | null

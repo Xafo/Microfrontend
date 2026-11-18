@@ -84,30 +84,25 @@ public sealed class LectorDestinatarios(IOptions<CargaOptions> carga, ValidadorD
         for (int f = filaEnc + 1; f < celdas.Count; f++)
         {
             var r = celdas[f];
-            if (r.All(v => ConversorValores.ATexto(v).Length == 0)) continue;
+            // Solo cuentan las columnas esperadas: textos fuera de ellas (p. ej. la leyenda de la plantilla) no son filas.
+            if (idx.Values.All(c => ConversorValores.ATexto(c < r.Length ? r[c] : null).Length == 0)) continue;
             if (filas.Count >= _o.FilasMaximas)
             {
                 errores.Add($"El archivo supera el máximo de {_o.FilasMaximas} filas. Divida el envío.");
                 break;
             }
 
-            var sumaCruda = Celda(r, Columnas.SumaAsegurada);
             var fila = new FilaLeida
             {
                 NumeroFila = f + 1,
-                TipoFormulario = ConversorValores.ATexto(Celda(r, Columnas.TipoFormulario)),
+                TipoFormulario = validador.NormalizarTipo(ConversorValores.ATexto(Celda(r, Columnas.TipoFormulario))),
                 NombreContratante = ConversorValores.ATexto(Celda(r, Columnas.NombreContratante)),
                 NombreCliente = ConversorValores.ATexto(Celda(r, Columnas.NombreCliente)),
                 NumeroPoliza = ConversorValores.ATexto(Celda(r, Columnas.NumeroPoliza)),
-                SumaAseguradaTexto = ConversorValores.ATexto(sumaCruda),
-                SumaAsegurada = ConversorValores.ASuma(sumaCruda),
                 Correo = ConversorValores.ATexto(Celda(r, Columnas.Correo)),
             };
 
-            if (fila.SumaAsegurada is null)
-                fila.Errores.Add(new("SumaAsegurada", fila.SumaAseguradaTexto.Length == 0 ? "Es obligatorio." : $"'{fila.SumaAseguradaTexto}' no es un monto válido."));
-            foreach (var e in validador.Validar(fila.ADatos()))
-                if (!(e.Campo == "SumaAsegurada" && fila.SumaAsegurada is null)) fila.Errores.Add(e);
+            fila.Errores.AddRange(validador.Validar(fila.ADatos()));
 
             if (string.IsNullOrWhiteSpace(fila.NombreCliente)) fila.Errores.Add(new("NombreCliente", "Es obligatorio."));
             else if (fila.NombreCliente.Length > _o.LongitudMaximaNombreCliente) fila.Errores.Add(new("NombreCliente", $"Supera {_o.LongitudMaximaNombreCliente} caracteres."));

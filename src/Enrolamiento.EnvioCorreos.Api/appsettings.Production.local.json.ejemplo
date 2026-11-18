@@ -1,0 +1,17 @@
+{
+  "Enlaces": {
+    "VariableEntornoLlaves": "ENROLAMIENTO_DP_LLAVES_PROD"
+  },
+  "Login": {
+    "Usuario": "operador",
+    "ClaveHash": "PEGAR_AQUI_EL_HASH_DE_generar-clave"
+  },
+  "Correo": {
+    "Remitente": "REMITENTE_PROD@ficohsa.com"
+  },
+  "Oracle": {
+    "DataSource": "HOST_ORACLE_PROD:1521/SERVICIO_PROD",
+    "Usuario": "USUARIO_PROD",
+    "Clave": "CLAVE_PROD"
+  }
+}

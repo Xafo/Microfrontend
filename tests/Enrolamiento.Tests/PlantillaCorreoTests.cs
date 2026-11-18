@@ -5,7 +5,7 @@ namespace Enrolamiento.Tests;
 
 public class PlantillaCorreoTests
 {
-    private static readonly DatosPlantilla D = new("Ana", "Contratante", "123", "61",
+    private static readonly DatosPlantilla D = new("Ana", "Contratante", "123", "SPN-F.GTP-61",
         new Uri("https://x.test/EnrolamientoHN/?datos=abc_-123"), new DateTimeOffset(2026, 11, 19, 18, 0, 0, TimeSpan.Zero));
 
     [Fact]

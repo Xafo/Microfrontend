@@ -1,11 +1,10 @@
 namespace Enrolamiento.Enlaces;
 
-/// <summary>Los cinco campos del contrato que viajan cifrados dentro del enlace.</summary>
+/// <summary>Los cuatro campos del contrato que viajan cifrados dentro del enlace.</summary>
 public sealed record DatosEnrolamiento(
     string TipoFormulario,
     string NombreContratante,
     string NumeroPoliza,
-    decimal SumaAsegurada,
     string Correo);
 
 public sealed record ErrorCampo(string Campo, string Mensaje);

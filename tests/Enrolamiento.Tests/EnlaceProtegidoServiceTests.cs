@@ -19,7 +19,7 @@ public class EnlaceProtegidoServiceTests
     {
         using var sp = Utilidades.Crear();
         var svc = sp.GetRequiredService<IEnlaceProtegidoService>();
-        var datos = Utilidades.Datos(nombre: nombre, suma: 1234567.89m);
+        var datos = Utilidades.Datos(nombre: nombre);
 
         var enlace = svc.GenerarEnlace(datos);
         var r = svc.ValidarContenido(Datos(enlace.Url));
@@ -30,12 +30,26 @@ public class EnlaceProtegidoServiceTests
     }
 
     [Fact]
-    public void Conserva_precision_decimal()
+    public void Contenido_cifrado_tiene_solo_los_cuatro_campos()
     {
         using var sp = Utilidades.Crear();
-        var svc = sp.GetRequiredService<IEnlaceProtegidoService>();
-        var r = svc.ValidarContenido(Datos(svc.GenerarEnlace(Utilidades.Datos(suma: 999999999999.99m)).Url));
-        Assert.Equal(999999999999.99m, r.Datos!.SumaAsegurada);
+        var cifrado = Datos(sp.GetRequiredService<IEnlaceProtegidoService>().GenerarEnlace(Utilidades.Datos()).Url);
+        var json = sp.GetRequiredService<IDataProtectionProvider>()
+            .CreateProtector("Enrolamiento", "EnlaceCorreo", "v1").ToTimeLimitedDataProtector()
+            .Unprotect(WebEncoders.Base64UrlDecode(cifrado), out _);
+        var campos = System.Text.Json.JsonDocument.Parse(json).RootElement.EnumerateObject().Select(p => p.Name).ToArray();
+        Assert.Equal(["version", "tipoFormulario", "nombreContratante", "numeroPoliza", "correo"], campos);
+    }
+
+    [Fact]
+    public void Rechaza_contenido_con_campos_extra()
+    {
+        using var sp = Utilidades.Crear();
+        var json = """{"version":1,"tipoFormulario":"SPN-F.GTP-61","nombreContratante":"A","numeroPoliza":"1","sumaAsegurada":1,"correo":"a@b.co"}"""u8.ToArray();
+        var protegido = sp.GetRequiredService<IDataProtectionProvider>()
+            .CreateProtector("Enrolamiento", "EnlaceCorreo", "v1").ToTimeLimitedDataProtector()
+            .Protect(json, DateTimeOffset.UtcNow.AddHours(1));
+        Assert.False(sp.GetRequiredService<IEnlaceProtegidoService>().ValidarContenido(WebEncoders.Base64UrlEncode(protegido)).Valido);
     }
 
     [Fact]
@@ -46,7 +60,7 @@ public class EnlaceProtegidoServiceTests
         var url = enlace.Url.AbsoluteUri;
 
         Assert.StartsWith("https://seguros.example.test/EnrolamientoHN/?datos=", url);
-        foreach (var claro in new[] { "CONTRATANTE", "1000000332", "2500000", "cliente", "example.test/EnrolamientoHN/?tipo" })
+        foreach (var claro in new[] { "CONTRATANTE", "1000000332", "cliente", "example.test/EnrolamientoHN/?tipo" })
             Assert.DoesNotContain(claro, url[50..], StringComparison.OrdinalIgnoreCase);
         Assert.True(url.Length < 2000, $"Largo {url.Length}");
     }
@@ -115,7 +129,7 @@ public class EnlaceProtegidoServiceTests
     public void Rechaza_version_no_soportada_aunque_este_cifrada_correctamente()
     {
         using var sp = Utilidades.Crear();
-        var json = """{"version":2,"tipoFormulario":"61","nombreContratante":"A","numeroPoliza":"1","sumaAsegurada":1,"correo":"a@b.co"}"""u8.ToArray();
+        var json = """{"version":2,"tipoFormulario":"SPN-F.GTP-61","nombreContratante":"A","numeroPoliza":"1","correo":"a@b.co"}"""u8.ToArray();
         var protegido = sp.GetRequiredService<Microsoft.AspNetCore.DataProtection.IDataProtectionProvider>()
             .CreateProtector("Enrolamiento", "EnlaceCorreo", "v1").ToTimeLimitedDataProtector()
             .Protect(json, DateTimeOffset.UtcNow.AddHours(1));
@@ -197,7 +211,7 @@ public class EnlaceProtegidoServiceTests
     public void Enlace_maximo_con_unicode_cabe_en_limite_de_iis()
     {
         using var sp = Utilidades.Crear();
-        var datos = new DatosEnrolamiento("161", new string('Ñ', 200), new string('9', 30), 999999999999.99m,
+        var datos = new DatosEnrolamiento("COACEHL (SPN-F.GTP-102)", new string('Ñ', 200), new string('9', 30),
             new string('a', 64) + "@" + new string('b', 60) + "." + new string('c', 60) + "." + new string('d', 60) + ".hn");
         Assert.Empty(sp.GetRequiredService<ValidadorDatosEnrolamiento>().Validar(datos));
         var url = sp.GetRequiredService<IEnlaceProtegidoService>().GenerarEnlace(datos).Url.AbsoluteUri;

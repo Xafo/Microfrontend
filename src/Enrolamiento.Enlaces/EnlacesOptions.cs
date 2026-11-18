@@ -8,7 +8,7 @@ public sealed class EnlacesOptions
 {
     public const string Seccion = "Enlaces";
 
-    /// <summary>URL pública base del formulario (HTTPS). Ej.: https://seguros.ficohsa.com/EnrolamientoHN/</summary>
+    /// <summary>URL pública base del formulario (HTTPS). Ej.: https://seguros.ficohsa.com/ (el enlace queda https://seguros.ficohsa.com/?datos=...)</summary>
     public string UrlPublicaBase { get; set; } = "";
 
     /// <summary>Nombre del parámetro de query que lleva el contenido protegido.</summary>
@@ -29,14 +29,20 @@ public sealed class EnlacesOptions
     /// <summary>Variable de entorno que contiene el key ring (XML o Base64 del XML).</summary>
     public string VariableEntornoLlaves { get; set; } = "ENROLAMIENTO_DP_LLAVES";
 
-    public static readonly string[] TiposPorDefecto = ["61", "62", "63", "64", "101", "102", "161"];
+    public static readonly string[] TiposPorDefecto =
+    [
+        "SPN-F.GTP-61", "SPN-F.GTP-62", "SPN-F.GTP-63", "SPN-F.GTP-64",
+        "SPN-F.GTP-101", "SPN-F.GTP-161", "COACEHL (SPN-F.GTP-102)",
+    ];
 
-    /// <summary>Vacío en configuración = <see cref="TiposPorDefecto"/>. (Inicia vacía: el binder agrega a la lista, no la reemplaza.)</summary>
+    /// <summary>
+    /// Nombres completos aceptados en "Tipo de Formulario" (el mismo texto que muestra el formulario).
+    /// Para agregar uno: añadirlo a Enlaces:TiposFormularioPermitidos en appsettings.json.
+    /// Vacío en configuración = <see cref="TiposPorDefecto"/>. (Inicia vacía: el binder agrega a la lista, no la reemplaza.)
+    /// </summary>
     public List<string> TiposFormularioPermitidos { get; set; } = [];
 
     public int LongitudMaximaNombreContratante { get; set; } = 200;
     public int LongitudMaximaNumeroPoliza { get; set; } = 30;
     public int LongitudMaximaCorreo { get; set; } = 254;
-    public decimal SumaAseguradaMaxima { get; set; } = 999_999_999_999.99m;
-    public int DecimalesMaximosSuma { get; set; } = 2;
 }
