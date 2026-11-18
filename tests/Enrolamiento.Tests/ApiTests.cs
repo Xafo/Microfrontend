@@ -26,6 +26,11 @@ public sealed class EnviadorDePrueba : IEnviadorCorreo
 
 public sealed class Fabrica : WebApplicationFactory<Program>
 {
+    public const string Usuario = "operador";
+    public const string Clave = "Clave-De-Prueba-2026";
+    // Pocas iteraciones solo para que las pruebas sean rápidas; el comando generar-clave usa 600 000.
+    public static readonly string ClaveHash = Enrolamiento.EnvioCorreos.Api.Seguridad.HashClave.Crear(Clave, 1000);
+
     public EnviadorDePrueba Enviador { get; } = new();
     public string Ambiente { get; init; } = "Local";
     public Dictionary<string, string?> Config { get; init; } = [];
@@ -36,8 +41,25 @@ public sealed class Fabrica : WebApplicationFactory<Program>
         b.UseEnvironment(Ambiente);
         b.UseSetting("Enlaces:VariableEntornoLlaves", Utilidades.Variable);
         b.UseSetting("Correo:PausaEntreEnviosMs", "0");
+        b.UseSetting("Login:Usuario", Usuario);
+        b.UseSetting("Login:ClaveHash", ClaveHash);
+        b.UseSetting("Login:IntentosPorMinuto", "1000");
         foreach (var kv in Config) b.UseSetting(kv.Key, kv.Value);
         b.ConfigureTestServices(s => s.AddSingleton<IEnviadorCorreo>(Enviador));
+    }
+
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        client.DefaultRequestHeaders.Add("X-Solicitud", "1");
+    }
+
+    /// <summary>Cliente con la sesión ya iniciada.</summary>
+    public HttpClient ClienteConSesion()
+    {
+        var c = CreateClient();
+        c.PostAsJsonAsync("/api/auth/login", new { usuario = Usuario, clave = Clave }).GetAwaiter().GetResult().EnsureSuccessStatusCode();
+        return c;
     }
 }
 
@@ -45,7 +67,7 @@ public class ApiTests : IClassFixture<Fabrica>
 {
     private readonly Fabrica _f;
     private readonly HttpClient _c;
-    public ApiTests(Fabrica f) { _f = f; _c = f.CreateClient(); }
+    public ApiTests(Fabrica f) { _f = f; _c = f.ClienteConSesion(); }
 
     internal static async Task<JsonElement> Subir(HttpClient c, string nombre, byte[] bytes, HttpStatusCode esperado = HttpStatusCode.OK)
     {
@@ -110,7 +132,7 @@ public class ApiTests : IClassFixture<Fabrica>
     public async Task Tipo_agregado_en_configuracion_se_acepta_y_aparece_en_la_leyenda()
     {
         using var f = new Fabrica { Config = new() { ["Enlaces:TiposFormularioPermitidos:0"] = "SPN-F.GTP-61", ["Enlaces:TiposFormularioPermitidos:1"] = "SPN-F.GTP-999" } };
-        var c = f.CreateClient();
+        var c = f.ClienteConSesion();
         var lote = await Subir(c, "a.csv", Csv("SPN-F.GTP-999;A;A;1;x@example.test", "SPN-F.GTP-62;B;B;2;y@example.test"));
         var filas = lote.GetProperty("filas").EnumerateArray().ToList();
         Assert.Equal("Lista", filas[0].GetProperty("estado").GetString());
@@ -288,7 +310,7 @@ public class ArranqueTests
                 ["Oracle:DataSource"] = "host:1521/servicio", ["Oracle:Usuario"] = "u", ["Oracle:Clave"] = "c",
             },
         };
-        var c = await f.CreateClient().GetFromJsonAsync<JsonElement>("/api/configuracion");
+        var c = await f.ClienteConSesion().GetFromJsonAsync<JsonElement>("/api/configuracion");
         Assert.Equal(url, c.GetProperty("urlPublicaBase").GetString());
         Assert.Equal("Oracle", c.GetProperty("modoEnvio").GetString());
     }
@@ -307,7 +329,11 @@ public class ConfiguracionLocalTests
             """{ "Correo": { "Remitente": "dev@example.test" }, "Oracle": { "DataSource": "h:1521/s", "Usuario": "u", "Clave": "c" } }""");
         using var f = new Fabrica { Ambiente = "Development" };
         using var conRaiz = f.WithWebHostBuilder(b => b.UseContentRoot(dir));
-        var c = await conRaiz.CreateClient().GetFromJsonAsync<JsonElement>("/api/configuracion");
+        // WithWebHostBuilder crea otra fábrica: se inicia sesión a mano.
+        var cli = conRaiz.CreateClient();
+        cli.DefaultRequestHeaders.Add("X-Solicitud", "1");
+        (await cli.PostAsJsonAsync("/api/auth/login", new { usuario = Fabrica.Usuario, clave = Fabrica.Clave })).EnsureSuccessStatusCode();
+        var c = await cli.GetFromJsonAsync<JsonElement>("/api/configuracion");
         Assert.Equal("dev@example.test", c.GetProperty("remitente").GetString());
         Assert.Equal("https://d3322rrb6yrsp3.cloudfront.net/", c.GetProperty("urlPublicaBase").GetString());
     }

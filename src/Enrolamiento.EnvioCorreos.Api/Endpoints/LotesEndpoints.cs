@@ -13,7 +13,7 @@ public static class LotesEndpoints
 {
     public static void MapLotes(this IEndpointRouteBuilder app)
     {
-        var api = app.MapGroup("/api");
+        var api = app.MapGroup("/api").RequireAuthorization();
 
         api.MapGet("/configuracion", (IOptions<EnlacesOptions> enl, IOptions<CorreoOptions> cor, IOptions<CargaOptions> car,
             PlantillaCorreo plantilla, IHostEnvironment env) => new

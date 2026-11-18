@@ -15,6 +15,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>ficohsa-enrolamiento-envio-correos</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
