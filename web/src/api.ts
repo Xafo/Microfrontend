@@ -36,6 +36,13 @@ async function pedir<T>(ruta: string, init?: RequestInit): Promise<T> {
     throw new ErrorApi(detalle, r.status, errores)
   }
   if (r.status === 204) return undefined as T
+  // El portal siempre responde JSON en /api. Si llega HTML, la respuesta la generó otro equipo
+  // en el camino (WAF, proxy o balanceador), no la aplicación.
+  if (!(r.headers.get('content-type') ?? '').includes('json'))
+    throw new ErrorApi(
+      'La petición fue bloqueada antes de llegar al portal (posible firewall/WAF). Consulte con Seguridad o Infraestructura.',
+      r.status,
+    )
   return r.json() as Promise<T>
 }
 
