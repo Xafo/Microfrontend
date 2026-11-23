@@ -345,14 +345,51 @@ public class ConfiguracionLocalTests
 
 public class SubrutaIisTests
 {
-    [Fact]
-    public async Task Aplicacion_en_subruta_sin_barra_final_redirige_con_barra()
+    private static async Task<string> Pagina(Fabrica f, string url)
+    {
+        var r = await f.Server.CreateClient().GetAsync(url);
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        Assert.Equal("no-store", r.Headers.CacheControl!.ToString());
+        return await r.Content.ReadAsStringAsync();
+    }
+
+    [Theory]
+    [InlineData("http://localhost/MFOnboardingDigital")]      // sin barra final (caso IIS que fallaba)
+    [InlineData("http://localhost/MFOnboardingDigital/")]
+    [InlineData("http://localhost/MFOnboardingDigital/revision")]
+    public async Task En_subruta_la_pantalla_lleva_base_href_de_la_aplicacion(string url)
     {
         using var f = new Fabrica();
-        f.Server.BaseAddress = new Uri("http://localhost/EnvioEnlaces/");
-        var c = f.Server.CreateClient();
-        var r = await c.GetAsync("http://localhost/EnvioEnlaces");
-        Assert.Equal(HttpStatusCode.Redirect, r.StatusCode);
-        Assert.Equal("/EnvioEnlaces/", r.Headers.Location!.OriginalString);
+        f.Server.BaseAddress = new Uri("http://localhost/MFOnboardingDigital/");
+        var html = await Pagina(f, url);
+        Assert.Contains("<base href=\"/MFOnboardingDigital/\" />", html);
+        Assert.Contains("./assets/", html);
+    }
+
+    [Fact]
+    public async Task Ruta_de_api_inexistente_no_devuelve_la_pantalla()
+    {
+        using var f = new Fabrica();
+        var r = await f.ClienteConSesion().GetAsync("/api/no-existe");
+        Assert.Equal(HttpStatusCode.NotFound, r.StatusCode);
+    }
+
+    [Fact]
+    public async Task En_la_raiz_la_base_es_barra()
+    {
+        using var f = new Fabrica();
+        var html = await Pagina(f, "http://localhost/");
+        Assert.Contains("<base href=\"/\" />", html);
+    }
+
+    [Fact]
+    public async Task Los_archivos_de_la_pantalla_se_sirven_dentro_de_la_subruta()
+    {
+        using var f = new Fabrica();
+        f.Server.BaseAddress = new Uri("http://localhost/MFOnboardingDigital/");
+        var html = await Pagina(f, "http://localhost/MFOnboardingDigital");
+        var js = System.Text.RegularExpressions.Regex.Match(html, @"\./(assets/index-[^""]+\.js)").Groups[1].Value;
+        var r = await f.Server.CreateClient().GetAsync("http://localhost/MFOnboardingDigital/" + js);
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
     }
 }

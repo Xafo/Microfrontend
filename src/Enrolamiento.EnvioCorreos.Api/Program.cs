@@ -1,3 +1,4 @@
+using Enrolamiento.EnvioCorreos.Api;
 using System.Threading.Channels;
 using Enrolamiento.Enlaces;
 using Enrolamiento.EnvioCorreos.Api.Carga;
@@ -110,17 +111,6 @@ app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.Use(async (ctx, next) =>
 {
-    // Publicado como aplicación de IIS (/EnvioEnlaces): sin "/" final las rutas relativas de la pantalla
-    // apuntarían a la raíz del servidor. Se redirige a /EnvioEnlaces/.
-    if (ctx.Request.PathBase.HasValue && !ctx.Request.Path.HasValue)
-    {
-        ctx.Response.Redirect(ctx.Request.PathBase + "/" + ctx.Request.QueryString);
-        return;
-    }
-    await next();
-});
-app.Use(async (ctx, next) =>
-{
     // Respuestas con enlaces y datos personales: nunca en cachés compartidas.
     ctx.Response.OnStarting(() =>
     {
@@ -134,7 +124,6 @@ app.Use(async (ctx, next) =>
     await next();
 });
 
-app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -153,7 +142,10 @@ app.Use(async (ctx, next) =>
 });
 app.MapAuth();
 app.MapLotes();
-app.MapFallbackToFile("index.html");
+// La pantalla se sirve con <base href> de la aplicación (p. ej. /MFOnboardingDigital/): así los archivos y la API
+// se encuentran aunque se entre sin la "/" final o se publique como aplicación dentro de otro sitio IIS.
+app.MapGet("/", PaginaPrincipal.Servir);
+app.MapFallback(PaginaPrincipal.Servir).WithMetadata(new HttpMethodMetadata(["GET", "HEAD"]));
 
 app.Run();
 
