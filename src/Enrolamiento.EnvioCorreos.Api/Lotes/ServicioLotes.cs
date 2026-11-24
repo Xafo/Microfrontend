@@ -56,18 +56,19 @@ public sealed class ServicioLotes(
         return lote;
     }
 
-    public CorreoRenderizado VistaPrevia(Lote lote, string asunto, string cuerpo, int? numeroFila)
+    /// <param name="baseImagenes">URL de las imágenes para la vista previa (la del portal si no hay una configurada).</param>
+    public CorreoRenderizado VistaPrevia(Lote lote, int? numeroFila, string? baseImagenes)
     {
         FilaLote? fila;
         lock (lote.Bloqueo)
             fila = lote.Filas.FirstOrDefault(f => f.Enlace is not null && (numeroFila is null || f.Datos.NumeroFila == numeroFila));
         if (fila is null) throw new ConflictoLoteException("No hay filas válidas para la vista previa.");
-        return plantilla.Renderizar(asunto, cuerpo, ADatosPlantilla(fila));
+        return plantilla.Renderizar(ADatosPlantilla(fila), baseImagenes);
     }
 
-    public void Enviar(Lote lote, string asunto, string cuerpo)
+    public void Enviar(Lote lote)
     {
-        var errores = plantilla.ValidarPlantilla(asunto, cuerpo);
+        var errores = plantilla.ValidarEnvio();
         if (errores.Count > 0) throw new PlantillaInvalidaException(errores);
 
         lock (lote.Bloqueo)
@@ -77,8 +78,6 @@ public sealed class ServicioLotes(
             var listas = lote.Filas.Where(f => f.Estado == EstadoFila.Lista).ToList();
             if (listas.Count == 0) throw new ConflictoLoteException("No hay filas válidas para enviar.");
             foreach (var f in listas) { f.Estado = EstadoFila.Pendiente; f.Mensaje = null; }
-            lote.Asunto = asunto;
-            lote.Cuerpo = cuerpo;
             lote.Estado = EstadoLote.Enviando;
             lote.CancelacionSolicitada = false;
         }
@@ -155,7 +154,6 @@ public sealed class ProcesadorEnvios(
         while (true)
         {
             FilaLote? fila;
-            string asunto, cuerpo;
             lock (lote.Bloqueo)
             {
                 if (lote.CancelacionSolicitada)
@@ -166,11 +164,9 @@ public sealed class ProcesadorEnvios(
                 fila = lote.Filas.FirstOrDefault(f => f.Estado == EstadoFila.Pendiente);
                 if (fila is null) { lote.Estado = EstadoLote.Finalizado; break; }
                 fila.Estado = EstadoFila.Enviando;
-                asunto = lote.Asunto!;
-                cuerpo = lote.Cuerpo!;
             }
 
-            var (estado, mensaje) = await EnviarFilaAsync(fila, asunto, cuerpo, o, detener);
+            var (estado, mensaje) = await EnviarFilaAsync(fila, o, detener);
             lock (lote.Bloqueo)
             {
                 fila.Estado = estado;
@@ -183,12 +179,12 @@ public sealed class ProcesadorEnvios(
         log.LogInformation("Finaliza envío del lote {Lote}", lote.Id);
     }
 
-    private async Task<(EstadoFila, string?)> EnviarFilaAsync(FilaLote fila, string asunto, string cuerpo, CorreoOptions o, CancellationToken detener)
+    private async Task<(EstadoFila, string?)> EnviarFilaAsync(FilaLote fila, CorreoOptions o, CancellationToken detener)
     {
         if (fila.Enlace!.ExpiraEnUtc <= reloj.GetUtcNow().AddMinutes(30))
             return (EstadoFila.Fallida, "El enlace está vencido o por vencer. Cargue el archivo de nuevo para regenerarlo.");
 
-        var r = plantilla.Renderizar(asunto, cuerpo, ServicioLotes.ADatosPlantilla(fila));
+        var r = plantilla.Renderizar(ServicioLotes.ADatosPlantilla(fila));
         if (r.Errores.Count > 0) return (EstadoFila.Fallida, string.Join(" ", r.Errores));
 
         try

@@ -4,8 +4,9 @@ Microfrontend interno (React) y su backend (.NET 10) para:
 
 1. Cargar un archivo `.xlsx`, `.xls` o `.csv` con los clientes.
 2. Validar cada fila y **cifrar** su enlace al formulario de enrolamiento (ASP.NET Core Data Protection, vigencia de 48 h).
-3. Editar el asunto y el cuerpo del correo, con vista previa.
+3. Revisar el correo (diseño institucional fijo, no editable) con vista previa por fila.
 4. Enviar los correos con `ficohsa.pr_mail.mail` (Oracle) y mostrar la ejecución fila por fila.
+5. **Descargar la información de una campaña**: Excel de carga masiva con las solicitudes que los clientes ya enviaron desde el formulario.
 
 ```
 web/                              React + Vite + TS → se compila a src/Enrolamiento.EnvioCorreos.Api/wwwroot
@@ -19,7 +20,7 @@ tests/Enrolamiento.Tests/         Pruebas unitarias y de integración
 ```
 Operador ─► sube archivo ─► API lee y valida filas ─► cifra el enlace de cada fila válida
         ◄── tabla con errores, enlace real (referencia) y enlace cifrado
-        ─► edita asunto/cuerpo ─► vista previa ─► confirma
+        ─► vista previa del correo fijo ─► confirma
         ─► API ejecuta pr_mail.mail por fila en segundo plano ─► progreso en vivo, cancelar, reintentar fallidos
 
 Cliente ─► abre https://<URL base>/?datos=<cifrado> ─► backend del formulario valida con la librería
@@ -36,7 +37,7 @@ Hoja `Destinatarios` (o la primera hoja que tenga estos encabezados). El orden d
 | Tipo de Formulario | Nombre completo, escrito: `SPN-F.GTP-61`, `SPN-F.GTP-62`, `SPN-F.GTP-63`, `SPN-F.GTP-64`, `SPN-F.GTP-101`, `SPN-F.GTP-161` o `COACEHL (SPN-F.GTP-102)`. No importan mayúsculas ni espacios de más |
 | Nombre del Contratante | Obligatorio, máx. 200 |
 | Nombre del Cliente | Obligatorio, máx. 200 (saludo del correo; no viaja en el enlace) |
-| Numero de Poliza | Obligatorio, máx. 30, letras/números/`-`/`/`; conserva ceros a la izquierda |
+| Agrupador | ID de la campaña (número de póliza, de gestión o agrupador). Obligatorio, máx. 30, letras/números/`-`/`/`. Antes se llamaba «Numero de Poliza»: ese encabezado se sigue aceptando |
 | Correo | Un solo correo válido |
 | Enlace | Opcional; se ignora (lo genera el servidor) |
 | Suma Asegurada | Ya no se usa. Si viene en un archivo anterior, se ignora |
@@ -57,6 +58,40 @@ Los tipos aceptados están en `src/Enrolamiento.EnvioCorreos.Api/appsettings.jso
 ```
 
 El tipo nuevo se acepta en la carga y aparece automáticamente en la leyenda del portal y en la plantilla de Excel descargada, en la columna H de la hoja «Destinatarios». La leyenda puede quedarse en el archivo al cargarlo: solo se leen las columnas esperadas. Avise al equipo del formulario, porque el `tipoFormulario` viaja tal cual dentro del enlace.
+
+## Correo (fijo)
+
+El correo **no se edita**: usa el diseño institucional *"Completa el formulario y asegura tu mundo"*. Va armado con 4 imágenes recortadas del diseño (`web/public/correo/`: `encabezado.jpg`, `boton-enrolamiento.png`, `logo-ficohsa-seguros.png`, `pie.jpg`) más texto HTML con los datos de cada fila:
+
+- **Estimado(a)** → *Nombre del Cliente*
+- **… programa de seguros que** → *Nombre del Contratante* **pone a disposición de sus colaboradores.**
+- Botón **Inicia tu enrolamiento aquí** → enlace cifrado, con un enlace de respaldo en texto y la fecha de vencimiento
+
+Se usan imágenes con el texto en HTML, y no texto encima de una sola imagen, porque Outlook no muestra imágenes de fondo. Asunto: `Correo:Asunto`. Como ya no viaja HTML desde la pantalla, el WAF no bloquea la vista previa ni el envío.
+
+## Descarga de información de campaña
+
+Pestaña **Descargar información de campaña** → se escribe el **ID de la campaña** (el mismo valor de la columna *Agrupador*) → **Descargar Excel**.
+
+1. `POST {SolicitudesApi:UrlBase}solicitud/auth/token` con `{ "username", "password" }` (variables `SolicitudesApi__Usuario` / `SolicitudesApi__Clave`) → `accessToken`.
+2. `GET {SolicitudesApi:UrlBase}solicitud/listar` con `Authorization: Bearer <token>`.
+3. Se filtran las solicitudes con `estado = ENVIADA` y `datos.numeroPoliza = agrupador` (sin distinguir mayúsculas ni espacios al inicio o al final).
+4. Se llena `Plantillas/Carga_Masiva.xlsx`, una fila por solicitud, solo en las columnas amarillas:
+
+| Columna | Dato de la solicitud |
+|---|---|
+| PRIMER APELLIDO / SEGUNDO APELLIDO | `primerApellido` / `segundoApellido` |
+| PRIMER NOMBRE / SEGUNDO NOMBRE | `primerNombre` / `segundoNombre` |
+| TIPODOC | `tipoDocumento` (número) |
+| NUMIDENTIDAD | `numeroDocumento` (texto, conserva guiones) |
+| PAISNAC | `nacionalidad` |
+| FECNAC | `fechaNacimiento` (fecha) |
+| SEXO | `sexo` |
+| PROFESION | `profesionOficio` |
+| TELEFONO1 / TELEFONO2 | `celular` / `telefonoFijo` |
+| FECHA INCLUSIÓN | `fechaIngresoPoliza` (fecha) |
+
+Las demás columnas (TIPOPROCESO, TIPOCLIEN, CODPARENT, etc.) quedan vacías para el área que hace la carga. Se exporta solo al titular de cada solicitud, sin beneficiarios ni dependientes.
 
 ## Login
 
@@ -118,7 +153,8 @@ Valores que deben completar en cada `appsettings.{Ambiente}.json` (hoy tienen ma
 - `Correo:Remitente` → parámetro `sender` de pr_mail.
 - `Oracle:DataSource` → descriptor TNS o `host:1521/servicio`.
 - `Oracle:Usuario` y `Oracle:Clave` → **recomendado por variables de entorno** del sitio IIS (`Oracle__Usuario`, `Oracle__Clave`) en lugar del archivo. Las variables de entorno tienen prioridad sobre el JSON.
-- `Correo:ImagenEncabezadoUrl` / `Correo:ImagenPieUrl` → URLs **HTTPS públicas** de las imágenes de encabezado y pie (el cliente de correo las descarga). Vacío = sin imagen.
+- `Correo:ImagenesBaseUrl` → URL **HTTPS pública** terminada en `/` donde están las imágenes del correo. El portal ya las publica en `{sitio}/correo/`, por ejemplo `https://www.ficohsasegurosonlineqa.com/MFOnboardingDigital/correo/`. Sin este valor **no se envían correos reales**.
+- `SolicitudesApi:UrlBase` (en `appsettings.json`: `https://enrolamientodigital.awsfs.gfficohsa.hn/`) y las variables **`SolicitudesApi__Usuario`** / **`SolicitudesApi__Clave`** → API del formulario para la descarga de campañas.
 
 **Ejecutar desde una PC contra Oracle DEV, STG o PROD:** ver **[docs/EJECUTAR-DESDE-PC.md](docs/EJECUTAR-DESDE-PC.md)** (perfiles `DEV`, `STG` y `PROD`, archivo `appsettings.{Ambiente}.local.json` y llave `ENROLAMIENTO_DP_LLAVES_{DEV|STG|PROD}`).
 

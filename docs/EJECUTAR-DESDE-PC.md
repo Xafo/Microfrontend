@@ -70,6 +70,7 @@ Complete los datos reales (ejemplo de DEV):
 {
   "Enlaces": { "VariableEntornoLlaves": "ENROLAMIENTO_DP_LLAVES_DEV" },
   "Login":   { "Usuario": "operador", "ClaveHash": "PBKDF2-SHA256:600000:...:..." },
+  "SolicitudesApi": { "Usuario": "USUARIO_API", "Clave": "CLAVE_API" },
   "Correo":  { "Remitente": "remitente@ficohsa.com" },
   "Oracle":  {
     "DataSource": "HOST_ORACLE_DEV:1521/SERVICIO_DEV",

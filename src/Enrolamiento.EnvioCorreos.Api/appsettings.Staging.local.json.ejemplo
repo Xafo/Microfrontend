@@ -13,5 +13,9 @@
     "DataSource": "HOST_ORACLE_STG:1521/SERVICIO_STG",
     "Usuario": "USUARIO_STG",
     "Clave": "CLAVE_STG"
+  },
+  "SolicitudesApi": {
+    "Usuario": "USUARIO_API_SOLICITUDES",
+    "Clave": "CLAVE_API_SOLICITUDES"
   }
 }

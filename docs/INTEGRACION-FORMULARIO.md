@@ -23,6 +23,7 @@ https://d3322rrb6yrsp3.cloudfront.net/?datos=CfDJ8EQi1Nr21YFLmveTzNdB8HEL0_...
 - `datos` está **cifrado y firmado** (ASP.NET Core Data Protection: AES-256-CBC + HMAC-SHA256) y **vence a las 48 h**.
 - No lleva ningún dato en texto claro. React **no puede** leerlo; solo el backend, con la llave.
 - `tipoFormulario` llega con el **nombre completo**, igual al texto de la lista del formulario: `SPN-F.GTP-61`, `SPN-F.GTP-62`, `SPN-F.GTP-63`, `SPN-F.GTP-64`, `SPN-F.GTP-101`, `SPN-F.GTP-161` o `COACEHL (SPN-F.GTP-102)`. Sirve para seleccionar la opción del combo sin conversiones.
+- `numeroPoliza` lleva el **agrupador de la campaña** (columna «Agrupador» del Excel de envío). El formulario debe guardarlo tal cual en `datos.numeroPoliza` de la solicitud: con ese valor el portal descarga la información de la campaña (solicitudes en estado `ENVIADA`).
 - Dentro van estos 4 campos:
 
 ```json

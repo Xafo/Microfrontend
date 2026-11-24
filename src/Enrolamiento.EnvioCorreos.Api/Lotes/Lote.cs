@@ -27,8 +27,6 @@ public sealed class Lote
     public required IReadOnlyList<FilaLote> Filas { get; init; }
     public required IReadOnlyList<string> ErroresArchivo { get; init; }
     public EstadoLote Estado { get; set; } = EstadoLote.Preparado;
-    public string? Asunto { get; set; }
-    public string? Cuerpo { get; set; }
     public bool CancelacionSolicitada { get; set; }
     public object Bloqueo { get; } = new();
 }

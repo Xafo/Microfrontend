@@ -62,13 +62,14 @@ public sealed class LectorDestinatarios(IOptions<CargaOptions> carga, ValidadorD
     private static (int fila, Dictionary<string, int> indices)? BuscarEncabezados(List<object?[]> celdas)
     {
         var obligatorias = Columnas.Obligatorias.ToDictionary(Columnas.Normalizar);
+        foreach (var (alias, columna) in Columnas.Alias) obligatorias.TryAdd(alias, columna);
         for (int f = 0; f < Math.Min(10, celdas.Count); f++)
         {
             var indices = new Dictionary<string, int>();
             for (int c = 0; c < celdas[f].Length; c++)
                 if (obligatorias.TryGetValue(Columnas.Normalizar(ConversorValores.ATexto(celdas[f][c])), out var col))
                     indices.TryAdd(col, c);
-            if (indices.Count == obligatorias.Count) return (f, indices);
+            if (indices.Count == Columnas.Obligatorias.Length) return (f, indices);
         }
         return null;
     }

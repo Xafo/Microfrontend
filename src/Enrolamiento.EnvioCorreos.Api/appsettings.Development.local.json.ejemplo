@@ -13,5 +13,9 @@
     "DataSource": "HOST_ORACLE_DEV:1521/SERVICIO_DEV",
     "Usuario": "USUARIO_DEV",
     "Clave": "CLAVE_DEV"
+  },
+  "SolicitudesApi": {
+    "Usuario": "USUARIO_API_SOLICITUDES",
+    "Clave": "CLAVE_API_SOLICITUDES"
   }
 }

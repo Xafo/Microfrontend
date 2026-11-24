@@ -17,7 +17,7 @@ export const etiquetaCampo: Record<string, string> = {
   TipoFormulario: 'Tipo de formulario',
   NombreContratante: 'Nombre del contratante',
   NombreCliente: 'Nombre del cliente',
-  NumeroPoliza: 'Número de póliza',
+  NumeroPoliza: 'Agrupador',
   Correo: 'Correo',
   Enlace: 'Enlace',
   Fila: 'Fila',

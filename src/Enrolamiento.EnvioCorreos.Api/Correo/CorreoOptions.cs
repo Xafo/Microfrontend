@@ -12,14 +12,15 @@ public sealed class CorreoOptions
     /// <summary>Parámetro "sender" de pr_mail.mail.</summary>
     public string Remitente { get; set; } = "";
 
-    public string AsuntoPorDefecto { get; set; } = "Complete su formulario de enrolamiento";
+    /// <summary>Asunto fijo del correo (no editable desde la pantalla).</summary>
+    public string Asunto { get; set; } = "Completa tu formulario de enrolamiento";
 
-    /// <summary>Cuerpo HTML editable por defecto. Si está vacío se usa <see cref="PlantillaCorreo.CuerpoPorDefecto"/>.</summary>
-    public string? CuerpoPorDefecto { get; set; }
-
-    /// <summary>Imágenes del correo: URLs HTTPS públicas (el cliente de correo las descarga). Vacío = no se incluye.</summary>
-    public string? ImagenEncabezadoUrl { get; set; }
-    public string? ImagenPieUrl { get; set; }
+    /// <summary>
+    /// URL HTTPS pública (terminada en "/") donde están las imágenes del correo: encabezado.jpg,
+    /// boton-enrolamiento.png, logo-ficohsa-seguros.png y pie.jpg. El portal las publica en {sitio}/correo/,
+    /// p. ej. https://www.ficohsasegurosonlineqa.com/MFOnboardingDigital/correo/. Sin este valor no se envía.
+    /// </summary>
+    public string? ImagenesBaseUrl { get; set; }
 
     /// <summary>Límite de VARCHAR2 en PL/SQL para el parámetro message.</summary>
     public int LongitudMaximaMensaje { get; set; } = 32767;

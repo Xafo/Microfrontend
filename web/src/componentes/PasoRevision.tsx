@@ -58,7 +58,7 @@ export function PasoRevision({ lote, onContinuar, onNuevo }: { lote: Lote; onCon
           <thead>
             <tr>
               <th>Fila</th><th>Tipo</th><th>Nombre del contratante</th><th>Nombre del cliente</th>
-              <th>Número de póliza</th><th>Correo</th><th>Estado</th><th>Enlace</th>
+              <th>Agrupador</th><th>Correo</th><th>Estado</th><th>Enlace</th>
             </tr>
           </thead>
           <tbody>

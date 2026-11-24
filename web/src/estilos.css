@@ -245,3 +245,29 @@ code { font-family: Consolas, 'Cascadia Mono', monospace; }
   .login-tarjeta { padding: 28px 20px; }
   .sesion-usuario { display: none; }
 }
+
+/* Modos del portal (envío / descarga de campaña) */
+.modos { display: inline-flex; gap: 4px; background: var(--superficie); border: 1px solid var(--borde); border-radius: 10px; padding: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+.modos button { font: inherit; font-weight: 600; font-size: 0.92rem; border: none; background: none; color: var(--texto-suave); padding: 8px 16px; border-radius: 7px; cursor: pointer; }
+.modos button.activo { background: var(--azul-ficohsa); color: #fff; }
+.modos button:not(.activo):hover { background: var(--azul-ficohsa-claro); color: var(--azul-ficohsa-oscuro); }
+.modos button:focus-visible { outline: 3px solid var(--azul-acento); outline-offset: 2px; }
+
+/* Correo fijo */
+.correo-fijo { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.correo-datos { display: flex; flex-direction: column; gap: 14px; }
+.correo-datos select { font: inherit; font-weight: 400; border: 1px solid var(--borde); border-radius: 6px; padding: 9px 12px; background: #fff; }
+.valor-fijo { font-weight: 400; border: 1px solid var(--borde); border-radius: 6px; padding: 9px 12px; background: var(--fondo); color: var(--texto); }
+.correo-fijo .previa { min-height: 760px; }
+.correo-fijo .previa iframe { min-height: 720px; }
+
+/* Descarga de campaña */
+.descarga { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; max-width: 760px; }
+.descarga .campo { flex: 1; min-width: 260px; }
+.descarga input { font: inherit; font-weight: 400; border: 1px solid var(--borde); border-radius: 6px; padding: 10px 12px; }
+.descarga input::placeholder { color: #9aa3b2; }
+.descarga input:focus { outline: 2px solid var(--azul-ficohsa); outline-offset: -1px; border-color: var(--azul-ficohsa); }
+.descarga .campo small { font-weight: 400; }
+.descarga .btn { margin-bottom: 22px; }
+
+@media (max-width: 900px) { .correo-fijo { grid-template-columns: 1fr; } }
