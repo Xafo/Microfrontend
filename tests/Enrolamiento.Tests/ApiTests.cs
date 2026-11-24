@@ -283,6 +283,36 @@ public class ApiTests : IClassFixture<Fabrica>
 
 public class ArranqueTests
 {
+    private static readonly Dictionary<string, string?> OracleOk = new()
+    {
+        ["Correo:Remitente"] = "notificaciones@example.test",
+        ["Oracle:DataSource"] = "host:1521/servicio", ["Oracle:Usuario"] = "u", ["Oracle:Clave"] = "c",
+    };
+
+    [Theory]
+    [InlineData("Development", "http://172.26.12.34/MFOnboardingDigital/correo")]   // servidor interno sin certificado, sin "/" final
+    [InlineData("Staging", "http://servidor-qa/MFOnboardingDigital/correo/")]
+    [InlineData("Production", "https://seguros.example.test/MFOnboardingDigital/correo")]
+    public async Task Imagenes_http_permitidas_fuera_de_production(string ambiente, string url)
+    {
+        using var f = new Fabrica { Ambiente = ambiente, Config = new(OracleOk) { ["Correo:ImagenesBaseUrl"] = url } };
+        var c = f.ClienteConSesion();
+        var lote = await ApiTests.Subir(c, "a.csv", ApiTests.Csv("SPN-F.GTP-61;A;Ana;C1;a@example.test"));
+        var v = await c.GetFromJsonAsync<JsonElement>($"/api/lotes/{lote.GetProperty("id")}/vista-previa");
+        Assert.Contains($"src=\"{url.TrimEnd('/')}/encabezado.jpg\"", v.GetProperty("html").GetString());
+        Assert.Empty(v.GetProperty("advertencias").EnumerateArray());
+    }
+
+    [Theory]
+    [InlineData("Production", "http://172.26.12.34/MFOnboardingDigital/correo/", "no se permite http")]
+    [InlineData("Development", "/MFOnboardingDigital/correo/", "absoluta")]
+    public void Imagenes_invalidas_no_arranca(string ambiente, string url, string mensaje)
+    {
+        using var f = new Fabrica { Ambiente = ambiente, Config = new(OracleOk) { ["Correo:ImagenesBaseUrl"] = url } };
+        var ex = Assert.ThrowsAny<Exception>(() => f.CreateClient());
+        Assert.Contains(mensaje, ex.ToString());
+    }
+
     [Fact]
     public void Production_no_permite_modo_simulado()
     {
