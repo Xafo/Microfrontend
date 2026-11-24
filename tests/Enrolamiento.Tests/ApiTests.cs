@@ -292,8 +292,9 @@ public class ArranqueTests
     [Theory]
     [InlineData("Development", "http://172.26.12.34/MFOnboardingDigital/correo")]   // servidor interno sin certificado, sin "/" final
     [InlineData("Staging", "http://servidor-qa/MFOnboardingDigital/correo/")]
+    [InlineData("Production", "http://172.26.12.34/MFOnboardingDigital/correo/")]          // también en Production
     [InlineData("Production", "https://seguros.example.test/MFOnboardingDigital/correo")]
-    public async Task Imagenes_http_permitidas_fuera_de_production(string ambiente, string url)
+    public async Task Imagenes_por_http_o_https_en_cualquier_ambiente(string ambiente, string url)
     {
         using var f = new Fabrica { Ambiente = ambiente, Config = new(OracleOk) { ["Correo:ImagenesBaseUrl"] = url } };
         var c = f.ClienteConSesion();
@@ -304,8 +305,8 @@ public class ArranqueTests
     }
 
     [Theory]
-    [InlineData("Production", "http://172.26.12.34/MFOnboardingDigital/correo/", "no se permite http")]
-    [InlineData("Development", "/MFOnboardingDigital/correo/", "absoluta")]
+    [InlineData("Production", "/MFOnboardingDigital/correo/", "absoluta")]
+    [InlineData("Development", "ftp://servidor/correo/", "absoluta")]
     public void Imagenes_invalidas_no_arranca(string ambiente, string url, string mensaje)
     {
         using var f = new Fabrica { Ambiente = ambiente, Config = new(OracleOk) { ["Correo:ImagenesBaseUrl"] = url } };

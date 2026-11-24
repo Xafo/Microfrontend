@@ -47,14 +47,10 @@ s.AddOptions<OracleOptions>().Bind(builder.Configuration.GetSection(OracleOption
 s.AddOptions<CorreoOptions>().Bind(builder.Configuration.GetSection(CorreoOptions.Seccion))
     .Validate(o => o.Modo == ModoEnvio.Simulado || ValidadorDatosEnrolamiento.EsCorreoValido(o.Remitente),
         "Correo:Remitente debe ser un correo válido cuando Correo:Modo es Oracle.")
-    // Production: HTTPS obligatorio (los clientes abren el correo desde Internet).
-    // Development/Staging/Local: se permite http (servidores internos sin certificado, pruebas con correos internos).
+    // http o https en cualquier ambiente (hay servidores internos sin certificado). Con http se deja un aviso en el log.
     .Validate(o => string.IsNullOrWhiteSpace(o.ImagenesBaseUrl)
-        || (Uri.TryCreate(o.ImagenesBaseUrl, UriKind.Absolute, out var x)
-            && (x.Scheme == Uri.UriSchemeHttps || (x.Scheme == Uri.UriSchemeHttp && !builder.Environment.IsProduction()))),
-        builder.Environment.IsProduction()
-            ? "Correo:ImagenesBaseUrl debe ser una URL HTTPS pública (en Production no se permite http)."
-            : "Correo:ImagenesBaseUrl debe ser una URL http(s) absoluta, por ejemplo http://servidor/MFOnboardingDigital/correo/.")
+        || (Uri.TryCreate(o.ImagenesBaseUrl, UriKind.Absolute, out var x) && (x.Scheme == Uri.UriSchemeHttps || x.Scheme == Uri.UriSchemeHttp)),
+        "Correo:ImagenesBaseUrl debe ser una URL http(s) absoluta, por ejemplo http://servidor/MFOnboardingDigital/correo/.")
     .ValidateOnStart();
 
 // Login: usuario y hash de contraseña desde variables de entorno (Login__Usuario, Login__ClaveHash).
@@ -120,7 +116,7 @@ if (!app.Services.GetRequiredService<IOptions<SolicitudesApiOptions>>().Value.Co
 if (correo.Modo == ModoEnvio.Oracle && string.IsNullOrWhiteSpace(correo.ImagenesBaseUrl))
     app.Logger.LogWarning("Correo:ImagenesBaseUrl sin configurar: no se podrán enviar correos.");
 else if (correo.ImagenesBaseUrl?.StartsWith("http://", StringComparison.OrdinalIgnoreCase) == true)
-    app.Logger.LogWarning("Correo:ImagenesBaseUrl usa http: las imágenes solo se verán dentro de la red interna.");
+    app.Logger.LogWarning("Correo:ImagenesBaseUrl usa http: si la dirección es interna, los clientes fuera de la red verán el correo sin imágenes.");
 app.Logger.LogInformation("Ambiente {Ambiente}. Envío: {Modo}. URL pública: {Url}", app.Environment.EnvironmentName, correo.Modo,
     app.Services.GetRequiredService<IOptions<EnlacesOptions>>().Value.UrlPublicaBase);
 
