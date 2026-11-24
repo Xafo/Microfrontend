@@ -1,6 +1,7 @@
 using Enrolamiento.EnvioCorreos.Api;
 using System.Threading.Channels;
 using Enrolamiento.Enlaces;
+using Enrolamiento.EnvioCorreos.Api.Campanas;
 using Enrolamiento.EnvioCorreos.Api.Carga;
 using Enrolamiento.EnvioCorreos.Api.Correo;
 using Enrolamiento.EnvioCorreos.Api.Endpoints;
@@ -46,9 +47,9 @@ s.AddOptions<OracleOptions>().Bind(builder.Configuration.GetSection(OracleOption
 s.AddOptions<CorreoOptions>().Bind(builder.Configuration.GetSection(CorreoOptions.Seccion))
     .Validate(o => o.Modo == ModoEnvio.Simulado || ValidadorDatosEnrolamiento.EsCorreoValido(o.Remitente),
         "Correo:Remitente debe ser un correo válido cuando Correo:Modo es Oracle.")
-    .Validate(o => new[] { o.ImagenEncabezadoUrl, o.ImagenPieUrl }.All(u => string.IsNullOrWhiteSpace(u)
-        || (Uri.TryCreate(u, UriKind.Absolute, out var x) && x.Scheme == Uri.UriSchemeHttps)),
-        "Las imágenes del correo deben ser URLs HTTPS públicas.")
+    .Validate(o => string.IsNullOrWhiteSpace(o.ImagenesBaseUrl)
+        || (Uri.TryCreate(o.ImagenesBaseUrl, UriKind.Absolute, out var x) && x.Scheme == Uri.UriSchemeHttps && o.ImagenesBaseUrl.EndsWith('/')),
+        "Correo:ImagenesBaseUrl debe ser una URL HTTPS pública terminada en '/'.")
     .ValidateOnStart();
 
 // Login: usuario y hash de contraseña desde variables de entorno (Login__Usuario, Login__ClaveHash).
@@ -86,6 +87,11 @@ s.AddSingleton(Channel.CreateUnbounded<Guid>(new UnboundedChannelOptions { Singl
 s.AddSingleton<AlmacenLotes>();
 s.AddSingleton<LectorDestinatarios>();
 s.AddSingleton<GeneradorPlantilla>();
+s.AddSingleton<GeneradorCargaMasiva>();
+// Descarga de campañas: API de solicitudes del formulario (token + listar). Usuario/clave por variables de entorno.
+s.AddOptions<SolicitudesApiOptions>().Bind(builder.Configuration.GetSection(SolicitudesApiOptions.Seccion));
+s.AddHttpClient<ClienteSolicitudes>((sp, h) =>
+    h.Timeout = TimeSpan.FromSeconds(Math.Max(5, sp.GetRequiredService<IOptions<SolicitudesApiOptions>>().Value.TiempoEsperaSegundos)));
 s.AddSingleton<PlantillaCorreo>();
 s.AddSingleton<ServicioLotes>();
 s.AddHostedService<ProcesadorEnvios>();
@@ -104,6 +110,10 @@ if (correo.Modo == ModoEnvio.Simulado && app.Environment.IsProduction())
     throw new InvalidOperationException("Correo:Modo=Simulado no está permitido en Production.");
 if (correo.Modo == ModoEnvio.Oracle && !app.Services.GetRequiredService<IOptions<OracleOptions>>().Value.Completa())
     throw new InvalidOperationException("Configure Oracle:DataSource, Oracle:Usuario y Oracle:Clave (variables Oracle__Usuario / Oracle__Clave).");
+if (!app.Services.GetRequiredService<IOptions<SolicitudesApiOptions>>().Value.Configurada())
+    app.Logger.LogWarning("Descarga de campañas sin configurar: defina SolicitudesApi:UrlBase, SolicitudesApi__Usuario y SolicitudesApi__Clave.");
+if (correo.Modo == ModoEnvio.Oracle && string.IsNullOrWhiteSpace(correo.ImagenesBaseUrl))
+    app.Logger.LogWarning("Correo:ImagenesBaseUrl sin configurar: no se podrán enviar correos.");
 app.Logger.LogInformation("Ambiente {Ambiente}. Envío: {Modo}. URL pública: {Url}", app.Environment.EnvironmentName, correo.Modo,
     app.Services.GetRequiredService<IOptions<EnlacesOptions>>().Value.UrlPublicaBase);
 
@@ -142,6 +152,7 @@ app.Use(async (ctx, next) =>
 });
 app.MapAuth();
 app.MapLotes();
+app.MapCampanas();
 // La pantalla se sirve con <base href> de la aplicación (p. ej. /MFOnboardingDigital/): así los archivos y la API
 // se encuentran aunque se entre sin la "/" final o se publique como aplicación dentro de otro sitio IIS.
 app.MapGet("/", PaginaPrincipal.Servir);

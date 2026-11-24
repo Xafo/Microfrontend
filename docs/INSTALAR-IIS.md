@@ -70,8 +70,7 @@ En `publicar\`, edite **solo** el archivo del ambiente que va a instalar:
   "Correo": {
     "Modo": "Oracle",
     "Remitente": "remitente@ficohsa.com",
-    "ImagenEncabezadoUrl": "https://.../header.png",
-    "ImagenPieUrl": "https://.../footer.png"
+    "ImagenesBaseUrl": "https://<dominio-publico>/MFOnboardingDigital/correo/"
   },
   "Oracle": {
     "DataSource": "HOST_ORACLE:1521/SERVICIO",
@@ -80,6 +79,8 @@ En `publicar\`, edite **solo** el archivo del ambiente que va a instalar:
   }
 }
 ```
+
+**`ImagenesBaseUrl`:** las imágenes del correo las publica el propio portal en `{sitio}/correo/`. Use la URL **pública** con la que se llega al portal desde Internet (los clientes abren el correo fuera de la red), terminada en `/`. Sin este valor no se envían correos reales.
 
 **Deje vacíos `Oracle:Usuario` y `Oracle:Clave`.** Van como variables de entorno en el paso 5. Las URL de las imágenes deben ser HTTPS públicas, o dejarse vacías.
 
@@ -147,6 +148,8 @@ Set-VarSitio "Login__Usuario"         "operador"
 Set-VarSitio "Login__ClaveHash"       "PBKDF2-SHA256:600000:...:..."
 Set-VarSitio "Oracle__Usuario"        "USUARIO_ORACLE"
 Set-VarSitio "Oracle__Clave"          "CLAVE_ORACLE"
+Set-VarSitio "SolicitudesApi__Usuario" "USUARIO_API_SOLICITUDES"   # descarga de campañas
+Set-VarSitio "SolicitudesApi__Clave"   "CLAVE_API_SOLICITUDES"
 
 Restart-WebAppPool "EnvioEnlaces"
 ```
@@ -210,7 +213,9 @@ Las variables del paso 5 no se tocan: están en IIS, no en la carpeta. No actual
 - [ ] Hosting Bundle .NET 10 instalado y `AspNetCoreModuleV2` visible
 - [ ] Pool `EnvioEnlaces`: sin código administrado, AlwaysRunning, Idle 0, reciclaje controlado
 - [ ] `appsettings.{Ambiente}.json` con URL base, remitente, DataSource e imágenes
-- [ ] Variables: `ASPNETCORE_ENVIRONMENT`, `ENROLAMIENTO_DP_LLAVES`, `Login__Usuario`, `Login__ClaveHash`, `Oracle__Usuario`, `Oracle__Clave`
+- [ ] Variables: `ASPNETCORE_ENVIRONMENT`, `ENROLAMIENTO_DP_LLAVES`, `Login__Usuario`, `Login__ClaveHash`, `Oracle__Usuario`, `Oracle__Clave`, `SolicitudesApi__Usuario`, `SolicitudesApi__Clave`
+- [ ] `Correo:ImagenesBaseUrl` apunta a una URL pública donde se ven las imágenes (abrir `.../correo/encabezado.jpg` desde fuera de la red)
+- [ ] El servidor llega al API de solicitudes (`Test-NetConnection enrolamientodigital.awsfs.gfficohsa.hn -Port 443`)
 - [ ] La misma `ENROLAMIENTO_DP_LLAVES` configurada en el backend del formulario de ese ambiente
 - [ ] HTTPS con certificado y acceso solo desde la red interna
 - [ ] Prueba de una fila enviada y abierta en el formulario

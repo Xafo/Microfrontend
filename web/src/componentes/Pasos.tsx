@@ -3,7 +3,7 @@ export type Paso = 'carga' | 'revision' | 'correo' | 'envio'
 const pasos: { id: Paso; titulo: string }[] = [
   { id: 'carga', titulo: 'Cargar archivo' },
   { id: 'revision', titulo: 'Revisar datos' },
-  { id: 'correo', titulo: 'Preparar correo' },
+  { id: 'correo', titulo: 'Revisar correo' },
   { id: 'envio', titulo: 'Envío' },
 ]
 

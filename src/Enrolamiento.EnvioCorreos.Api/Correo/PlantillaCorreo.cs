@@ -1,99 +1,95 @@
 using System.Globalization;
 using System.Net;
 using System.Text;
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.Options;
 
 namespace Enrolamiento.EnvioCorreos.Api.Correo;
 
-public sealed record DatosPlantilla(string NombreCliente, string NombreContratante, string NumeroPoliza,
+public sealed record DatosPlantilla(string NombreCliente, string NombreContratante, string Agrupador,
     string TipoFormulario, Uri Enlace, DateTimeOffset ExpiraEnUtc);
 
 public sealed record CorreoRenderizado(string Asunto, bool AsuntoModificado, string Html, IReadOnlyList<string> Errores);
 
 /// <summary>
-/// Arma el HTML final: encabezado (imagen) + cuerpo editable con marcadores + pie (imagen).
-/// pr_mail declara text/html; charset=iso-8859-1 y escribe con utl_smtp, por eso todo carácter no ASCII
-/// se convierte en entidad HTML (&amp;#225;) y el asunto se envía sin tildes.
+/// Correo fijo (no editable) armado sobre el diseño "Completa el formulario y asegura tu mundo":
+/// imágenes recortadas del diseño (encabezado, botón, logo y pie) + textos dinámicos en HTML
+/// (nombre del cliente y del contratante). Las imágenes se sirven desde <see cref="CorreoOptions.ImagenesBaseUrl"/>.
+///
+/// pr_mail declara text/html; charset=iso-8859-1 y escribe con utl_smtp: todo carácter no ASCII del HTML
+/// pasa a entidad (&amp;#225;) y el asunto se envía sin tildes.
 /// </summary>
-public sealed partial class PlantillaCorreo(IOptions<CorreoOptions> opciones)
+public sealed class PlantillaCorreo(IOptions<CorreoOptions> opciones)
 {
-    public const string CuerpoPorDefecto =
-        """
-        <p>Estimado(a) {{NombreCliente}},</p>
-        <p>Para continuar con el proceso de su póliza {{NumeroPoliza}}, le solicitamos completar el formulario de enrolamiento en el siguiente enlace:</p>
-        <p style="margin:24px 0;"><a href="{{Enlace}}" style="background:#003DA5;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:4px;display:inline-block;font-weight:bold;">Completar formulario</a></p>
-        <p>Saludos cordiales.</p>
-        """;
+    public static readonly string[] Imagenes = ["encabezado.jpg", "boton-enrolamiento.png", "logo-ficohsa-seguros.png", "pie.jpg"];
 
-    public static readonly string[] Marcadores =
-        ["NombreCliente", "NombreContratante", "NumeroPoliza", "TipoFormulario", "Enlace", "FechaVencimiento"];
-
+    private const string Azul = "#0158CB";
+    private const string Texto = "#002870";
     private static readonly TimeZoneInfo Honduras = BuscarZona();
     private readonly CorreoOptions _o = opciones.Value;
 
-    public string CuerpoInicial => string.IsNullOrWhiteSpace(_o.CuerpoPorDefecto) ? CuerpoPorDefecto : _o.CuerpoPorDefecto;
+    public bool ImagenesConfiguradas => !string.IsNullOrWhiteSpace(_o.ImagenesBaseUrl);
 
-    /// <summary>Errores de la plantilla que no dependen de la fila.</summary>
-    public List<string> ValidarPlantilla(string? asunto, string? cuerpo)
+    /// <summary>Errores que impiden enviar, independientes de la fila.</summary>
+    public List<string> ValidarEnvio()
     {
         var errores = new List<string>();
-        if (string.IsNullOrWhiteSpace(asunto)) errores.Add("El asunto es obligatorio.");
-        else if (asunto.Length > _o.LongitudMaximaAsunto) errores.Add($"El asunto supera {_o.LongitudMaximaAsunto} caracteres.");
-        else if (asunto.Any(char.IsControl)) errores.Add("El asunto no puede tener saltos de línea.");
-        if (string.IsNullOrWhiteSpace(cuerpo)) { errores.Add("El cuerpo es obligatorio."); return errores; }
-
-        var desconocidos = MarcadorRegex().Matches(cuerpo + " " + asunto).Select(m => m.Groups[1].Value)
-            .Where(m => !Marcadores.Contains(m)).Distinct().ToList();
-        if (desconocidos.Count > 0) errores.Add($"Marcadores desconocidos: {string.Join(", ", desconocidos.Select(d => "{{" + d + "}}"))}.");
-        if (!cuerpo.Contains("{{Enlace}}")) errores.Add("El cuerpo debe incluir el marcador {{Enlace}}.");
-        if (asunto?.Contains("{{Enlace}}") == true) errores.Add("El enlace no puede ir en el asunto.");
+        // En modo Simulado (pruebas) no se exige: el correo no sale del portal.
+        if (!ImagenesConfiguradas && _o.Modo == ModoEnvio.Oracle)
+            errores.Add("Las imágenes del correo no están configuradas (Correo:ImagenesBaseUrl). Configure la URL pública antes de enviar.");
+        if (string.IsNullOrWhiteSpace(_o.Asunto)) errores.Add("Falta el asunto del correo (Correo:Asunto).");
         return errores;
     }
 
-    public CorreoRenderizado Renderizar(string asunto, string cuerpo, DatosPlantilla d)
+    /// <param name="baseImagenes">URL de las imágenes; si es null se usa la configurada (obligatoria para enviar).</param>
+    public CorreoRenderizado Renderizar(DatosPlantilla d, string? baseImagenes = null)
     {
-        var errores = ValidarPlantilla(asunto, cuerpo);
+        var errores = new List<string>();
+        var img = baseImagenes ?? _o.ImagenesBaseUrl ?? "";
+        if (img.Length > 0 && !img.EndsWith('/')) img += "/";
+
+        string E(string v) => WebUtility.HtmlEncode(v);
+        var enlace = E(d.Enlace.AbsoluteUri);
         var vence = TimeZoneInfo.ConvertTime(d.ExpiraEnUtc, Honduras).ToString("dd/MM/yyyy hh:mm tt", new CultureInfo("es-HN"));
-        var valores = new Dictionary<string, string>
-        {
-            ["NombreCliente"] = d.NombreCliente,
-            ["NombreContratante"] = d.NombreContratante,
-            ["NumeroPoliza"] = d.NumeroPoliza,
-            ["TipoFormulario"] = d.TipoFormulario,
-            ["Enlace"] = d.Enlace.AbsoluteUri,
-            ["FechaVencimiento"] = vence,
-        };
+        const string fuente = "font-family:Arial,Helvetica,sans-serif;";
 
-        var cuerpoFinal = MarcadorRegex().Replace(cuerpo, m =>
-            valores.TryGetValue(m.Groups[1].Value, out var v) ? WebUtility.HtmlEncode(v) : m.Value);
-        var html = AAsciiSeguro(Envolver(cuerpoFinal));
+        var sb = new StringBuilder();
+        sb.Append("<!DOCTYPE html><html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\">")
+          .Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head>")
+          .Append("<body style=\"margin:0;padding:0;background:#f2f5fa;\">")
+          .Append("<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f2f5fa;\"><tr><td align=\"center\" style=\"padding:16px 8px;\">")
+          .Append("<table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:600px;max-width:100%;background:#ffffff;\">")
+          // Encabezado (foto + "Completa el formulario y asegura tu mundo")
+          .Append($"<tr><td><img src=\"{img}encabezado.jpg\" width=\"600\" alt=\"Tu bienestar merece estar asegurado. Completa el formulario y asegura tu mundo\" style=\"display:block;width:100%;max-width:600px;height:auto;border:0;\"></td></tr>")
+          // Saludo
+          .Append($"<tr><td style=\"padding:32px 40px 0 40px;{fuente}font-size:20px;line-height:1.4;color:{Texto};\">")
+          .Append($"Estimado(a) <strong>{E(d.NombreCliente)}</strong></td></tr>")
+          // Mensaje con el contratante
+          .Append($"<tr><td style=\"padding:20px 40px 0 40px;{fuente}font-size:17px;line-height:1.5;color:{Texto};\">")
+          .Append("Completa el siguiente formulario para iniciar tu proceso de enrolamiento y acceder al programa de seguros que ")
+          .Append($"<strong>{E(d.NombreContratante)}</strong> pone a <strong>disposición de sus colaboradores.</strong></td></tr>")
+          // Botón (imagen del diseño enlazada) + logo
+          .Append("<tr><td style=\"padding:32px 24px 8px 24px;\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
+          .Append($"<td align=\"left\" valign=\"middle\"><a href=\"{enlace}\" target=\"_blank\" style=\"text-decoration:none;\">")
+          .Append($"<img src=\"{img}boton-enrolamiento.png\" width=\"230\" alt=\"Inicia tu enrolamiento aquí\" style=\"display:block;width:230px;height:auto;border:0;{fuente}font-size:16px;font-weight:bold;color:{Azul};\"></a></td>")
+          .Append($"<td align=\"right\" valign=\"middle\"><img src=\"{img}logo-ficohsa-seguros.png\" width=\"160\" alt=\"Ficohsa Seguros\" style=\"display:block;width:160px;height:auto;border:0;\"></td>")
+          .Append("</tr></table></td></tr>")
+          // Enlace de respaldo y vencimiento
+          .Append($"<tr><td style=\"padding:8px 40px 24px 40px;{fuente}font-size:12px;line-height:1.5;color:#5b6676;\">")
+          .Append($"Si el botón no funciona, <a href=\"{enlace}\" target=\"_blank\" style=\"color:{Azul};\">haz clic aquí</a>. ")
+          .Append($"Este enlace es personal y vence el {E(vence)}.</td></tr>")
+          // Pie (consultas, WhatsApp, teléfonos)
+          .Append($"<tr><td><img src=\"{img}pie.jpg\" width=\"600\" alt=\"¿Tienes consultas? Escríbenos por WhatsApp al 9494-3426, llámanos al 4747 o al 2276-3960, o visita nuestras oficinas de Ficohsa Seguros a nivel nacional.\" style=\"display:block;width:100%;max-width:600px;height:auto;border:0;\"></td></tr>")
+          .Append("</table></td></tr></table></body></html>");
 
-        var asuntoFinal = MarcadorRegex().Replace(asunto, m => valores.TryGetValue(m.Groups[1].Value, out var v) ? v : m.Value);
-        var asuntoAscii = SinTildes(asuntoFinal);
-
+        var html = AAsciiSeguro(sb.ToString());
+        var asunto = _o.Asunto ?? "";
+        var asuntoAscii = SinTildes(asunto);
         if (html.Length > _o.LongitudMaximaMensaje)
             errores.Add($"El correo mide {html.Length} caracteres y supera el máximo de {_o.LongitudMaximaMensaje} de pr_mail.");
-        return new CorreoRenderizado(asuntoAscii, asuntoAscii != asuntoFinal, html, errores);
+        return new CorreoRenderizado(asuntoAscii, asuntoAscii != asunto, html, errores);
     }
 
-    private string Envolver(string cuerpo)
-    {
-        var sb = new StringBuilder();
-        sb.Append("<!DOCTYPE html><html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\"></head>");
-        sb.Append("<body style=\"margin:0;padding:0;background:#f4f6f9;\">");
-        sb.Append("<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f4f6f9;\"><tr><td align=\"center\" style=\"padding:24px 12px;\">");
-        sb.Append("<table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;background:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#1f2a37;\">");
-        if (!string.IsNullOrWhiteSpace(_o.ImagenEncabezadoUrl))
-            sb.Append($"<tr><td><img src=\"{WebUtility.HtmlEncode(_o.ImagenEncabezadoUrl)}\" width=\"600\" alt=\"Ficohsa Seguros\" style=\"display:block;width:100%;height:auto;border:0;\"></td></tr>");
-        sb.Append("<tr><td style=\"padding:32px;\">").Append(cuerpo).Append("</td></tr>");
-        if (!string.IsNullOrWhiteSpace(_o.ImagenPieUrl))
-            sb.Append($"<tr><td><img src=\"{WebUtility.HtmlEncode(_o.ImagenPieUrl)}\" width=\"600\" alt=\"Ficohsa Seguros\" style=\"display:block;width:100%;height:auto;border:0;\"></td></tr>");
-        sb.Append("</table></td></tr></table></body></html>");
-        return sb.ToString();
-    }
-
-    /// <summary>Todo carácter fuera de ASCII imprimible pasa a entidad numérica: el HTML llega igual sin importar la conversión de juego de caracteres.</summary>
+    /// <summary>Todo carácter fuera de ASCII imprimible pasa a entidad numérica.</summary>
     public static string AAsciiSeguro(string html)
     {
         var sb = new StringBuilder(html.Length + 64);
@@ -122,7 +118,4 @@ public sealed partial class PlantillaCorreo(IOptions<CorreoOptions> opciones)
             if (TimeZoneInfo.TryFindSystemTimeZoneById(id, out var tz)) return tz;
         return TimeZoneInfo.CreateCustomTimeZone("HN", TimeSpan.FromHours(-6), "Honduras", "Honduras");
     }
-
-    [GeneratedRegex(@"\{\{\s*([A-Za-z]+)\s*\}\}")]
-    private static partial Regex MarcadorRegex();
 }

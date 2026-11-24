@@ -7,7 +7,6 @@ using Microsoft.Extensions.Options;
 
 namespace Enrolamiento.EnvioCorreos.Api.Endpoints;
 
-public sealed record SolicitudCorreo(string? Asunto, string? Cuerpo, int? NumeroFila);
 
 public static class LotesEndpoints
 {
@@ -16,7 +15,7 @@ public static class LotesEndpoints
         var api = app.MapGroup("/api").RequireAuthorization();
 
         api.MapGet("/configuracion", (IOptions<EnlacesOptions> enl, IOptions<CorreoOptions> cor, IOptions<CargaOptions> car,
-            PlantillaCorreo plantilla, IHostEnvironment env) => new
+            PlantillaCorreo plantilla, IOptions<Campanas.SolicitudesApiOptions> sol, IHostEnvironment env) => new
         {
             ambiente = env.EnvironmentName,
             urlPublicaBase = enl.Value.UrlPublicaBase,
@@ -28,9 +27,9 @@ public static class LotesEndpoints
             filasMaximas = car.Value.FilasMaximas,
             modoEnvio = cor.Value.Modo.ToString(),
             remitente = cor.Value.Remitente,
-            asuntoPorDefecto = cor.Value.AsuntoPorDefecto,
-            cuerpoPorDefecto = plantilla.CuerpoInicial,
-            marcadores = PlantillaCorreo.Marcadores,
+            asunto = cor.Value.Asunto,
+            imagenesCorreoConfiguradas = plantilla.ImagenesConfiguradas,
+            descargaCampanaConfigurada = sol.Value.Configurada(),
         });
 
         api.MapGet("/plantilla", (GeneradorPlantilla plantillaExcel) =>
@@ -54,15 +53,20 @@ public static class LotesEndpoints
         api.MapGet("/lotes/{id:guid}/estado", (Guid id, AlmacenLotes almacen) =>
             almacen.Obtener(id) is { } l ? Results.Ok(LoteDto.Estado(l)) : NoEncontrado());
 
-        api.MapPost("/lotes/{id:guid}/vista-previa", (Guid id, SolicitudCorreo s, AlmacenLotes almacen, ServicioLotes servicio) =>
+        // GET y sin cuerpo: el correo es fijo, la pantalla solo elige la fila a previsualizar.
+        api.MapGet("/lotes/{id:guid}/vista-previa", (Guid id, int? numeroFila, HttpContext http, AlmacenLotes almacen,
+            ServicioLotes servicio, PlantillaCorreo plantilla) =>
             Ejecutar(almacen, id, l =>
             {
-                var r = servicio.VistaPrevia(l, s.Asunto ?? "", s.Cuerpo ?? "", s.NumeroFila);
-                return Results.Ok(new { asunto = r.Asunto, asuntoModificado = r.AsuntoModificado, html = r.Html, errores = r.Errores });
+                // Sin URL pública configurada, la vista previa usa las imágenes del propio portal.
+                var baseImagenes = plantilla.ImagenesConfiguradas ? null : http.Request.PathBase.ToUriComponent() + "/correo/";
+                var r = servicio.VistaPrevia(l, numeroFila, baseImagenes);
+                var advertencias = plantilla.ValidarEnvio();
+                return Results.Ok(new { asunto = r.Asunto, html = r.Html, errores = r.Errores, advertencias });
             }));
 
-        api.MapPost("/lotes/{id:guid}/envio", (Guid id, SolicitudCorreo s, AlmacenLotes almacen, ServicioLotes servicio) =>
-            Ejecutar(almacen, id, l => { servicio.Enviar(l, s.Asunto ?? "", s.Cuerpo ?? ""); return Results.Accepted(null, LoteDto.Estado(l)); }));
+        api.MapPost("/lotes/{id:guid}/envio", (Guid id, AlmacenLotes almacen, ServicioLotes servicio) =>
+            Ejecutar(almacen, id, l => { servicio.Enviar(l); return Results.Accepted(null, LoteDto.Estado(l)); }));
 
         api.MapPost("/lotes/{id:guid}/reintentar", (Guid id, AlmacenLotes almacen, ServicioLotes servicio) =>
             Ejecutar(almacen, id, l => { servicio.ReintentarFallidos(l); return Results.Accepted(null, LoteDto.Estado(l)); }));
@@ -75,7 +79,7 @@ public static class LotesEndpoints
     {
         if (almacen.Obtener(id) is not { } lote) return NoEncontrado();
         try { return accion(lote); }
-        catch (PlantillaInvalidaException ex) { return Problema(400, "La plantilla del correo no es válida.", ex.Errores); }
+        catch (PlantillaInvalidaException ex) { return Problema(400, "El correo no está listo para enviarse.", ex.Errores); }
         catch (ConflictoLoteException ex) { return Problema(409, ex.Message); }
     }
 

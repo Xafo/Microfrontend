@@ -34,6 +34,8 @@ public sealed class Fabrica : WebApplicationFactory<Program>
     public EnviadorDePrueba Enviador { get; } = new();
     public string Ambiente { get; init; } = "Local";
     public Dictionary<string, string?> Config { get; init; } = [];
+    /// <summary>Servicios de prueba adicionales (p. ej. API de solicitudes simulada).</summary>
+    public Action<IServiceCollection>? ServiciosExtra { get; set; }
 
     protected override void ConfigureWebHost(IWebHostBuilder b)
     {
@@ -41,11 +43,12 @@ public sealed class Fabrica : WebApplicationFactory<Program>
         b.UseEnvironment(Ambiente);
         b.UseSetting("Enlaces:VariableEntornoLlaves", Utilidades.Variable);
         b.UseSetting("Correo:PausaEntreEnviosMs", "0");
+        b.UseSetting("Correo:ImagenesBaseUrl", "https://cdn.example.test/correo/");
         b.UseSetting("Login:Usuario", Usuario);
         b.UseSetting("Login:ClaveHash", ClaveHash);
         b.UseSetting("Login:IntentosPorMinuto", "1000");
         foreach (var kv in Config) b.UseSetting(kv.Key, kv.Value);
-        b.ConfigureTestServices(s => s.AddSingleton<IEnviadorCorreo>(Enviador));
+        b.ConfigureTestServices(s => { s.AddSingleton<IEnviadorCorreo>(Enviador); ServiciosExtra?.Invoke(s); });
     }
 
     protected override void ConfigureClient(HttpClient client)
@@ -81,7 +84,7 @@ public class ApiTests : IClassFixture<Fabrica>
     }
 
     internal static byte[] Csv(params string[] filas) => System.Text.Encoding.UTF8.GetBytes(
-        "Tipo de Formulario;Nombre del Contratante;Nombre del Cliente;Numero de Poliza;Correo\n" + string.Join("\n", filas));
+        "Tipo de Formulario;Nombre del Contratante;Nombre del Cliente;Agrupador;Correo\n" + string.Join("\n", filas));
 
     internal static async Task<JsonElement> EsperarFin(HttpClient c, string id)
     {
@@ -100,8 +103,9 @@ public class ApiTests : IClassFixture<Fabrica>
     public async Task Configuracion_expone_plantilla_por_defecto_y_url_del_ambiente()
     {
         var c = await Configuracion();
-        Assert.Equal("Complete su formulario de enrolamiento", c.GetProperty("asuntoPorDefecto").GetString());
-        Assert.Contains("{{NombreCliente}}", c.GetProperty("cuerpoPorDefecto").GetString());
+        Assert.Equal("Completa tu formulario de enrolamiento", c.GetProperty("asunto").GetString());
+        Assert.True(c.GetProperty("imagenesCorreoConfiguradas").GetBoolean());
+        Assert.Contains("Agrupador", c.GetProperty("columnas").EnumerateArray().Select(x => x.GetString()));
         Assert.Equal("https://d3322rrb6yrsp3.cloudfront.net/", c.GetProperty("urlPublicaBase").GetString());
         Assert.Equal(48, c.GetProperty("vigenciaHoras").GetInt32());
         Assert.Equal(["SPN-F.GTP-61", "SPN-F.GTP-62", "SPN-F.GTP-63", "SPN-F.GTP-64", "SPN-F.GTP-101", "SPN-F.GTP-161", "COACEHL (SPN-F.GTP-102)"],
@@ -165,36 +169,33 @@ public class ApiTests : IClassFixture<Fabrica>
     }
 
     [Fact]
-    public async Task Vista_previa_reemplaza_marcadores_y_es_ascii()
+    public async Task Vista_previa_usa_el_correo_fijo_con_los_datos_de_la_fila()
     {
-        var c = await Configuracion();
-        var lote = await Subir(_c, "a.csv", Csv("SPN-F.GTP-61;Contratante;José <b>Pérez</b>;123;jose@example.test"));
-        var r = await _c.PostAsJsonAsync($"/api/lotes/{lote.GetProperty("id")}/vista-previa",
-            new { asunto = "Póliza {{NumeroPoliza}}", cuerpo = c.GetProperty("cuerpoPorDefecto").GetString() });
-        var v = await r.Content.ReadFromJsonAsync<JsonElement>();
+        var lote = await Subir(_c, "a.csv", Csv(
+            "SPN-F.GTP-61;Contratante Uno;Ana;CAMP-1;ana@example.test",
+            "SPN-F.GTP-61;Compañía <Dos>;José <b>Pérez</b>;CAMP-1;jose@example.test"));
+        var v = await _c.GetFromJsonAsync<JsonElement>($"/api/lotes/{lote.GetProperty("id")}/vista-previa?numeroFila=3");
         var html = v.GetProperty("html").GetString()!;
 
-        Assert.Equal("Poliza 123", v.GetProperty("asunto").GetString());
-        Assert.True(v.GetProperty("asuntoModificado").GetBoolean());
-        Assert.Contains("Jos&#233; &lt;b&gt;P&#233;rez&lt;/b&gt;", html);   // escapado y ASCII
-        Assert.Contains("p&#243;liza 123", html);
+        Assert.Equal("Completa tu formulario de enrolamiento", v.GetProperty("asunto").GetString());
+        Assert.Contains("Estimado(a) <strong>Jos&#233; &lt;b&gt;P&#233;rez&lt;/b&gt;</strong>", html);
+        Assert.Contains("<strong>Compa&#241;&#237;a &lt;Dos&gt;</strong> pone a", html);
         Assert.Contains("href=\"https://d3322rrb6yrsp3.cloudfront.net/?datos=", html);
-        Assert.Contains("Completar formulario", html);
+        Assert.Contains("src=\"https://cdn.example.test/correo/encabezado.jpg\"", html);
+        Assert.Empty(v.GetProperty("advertencias").EnumerateArray());
         Assert.All(html, ch => Assert.True(ch < 128));
     }
 
     [Fact]
     public async Task Envia_por_fila_y_no_permite_enviar_dos_veces()
     {
-        var c = await Configuracion();
         var lote = await Subir(_c, "a.csv", Csv(
             "SPN-F.GTP-61;Contratante A;Cliente A;111;a@example.test",
             "SPN-F.GTP-62;Contratante B;Cliente B;222;b@example.test",
             "99;Inválida;X;333;c@example.test"));
         var id = lote.GetProperty("id").ToString();
-        var cuerpo = c.GetProperty("cuerpoPorDefecto").GetString();
 
-        var r = await _c.PostAsJsonAsync($"/api/lotes/{id}/envio", new { asunto = "Complete su formulario de enrolamiento", cuerpo });
+        var r = await _c.PostAsync($"/api/lotes/{id}/envio", null);
         Assert.Equal(HttpStatusCode.Accepted, r.StatusCode);
         var fin = await EsperarFin(_c, id);
         Assert.Equal(2, fin.GetProperty("resumen").GetProperty("enviada").GetInt32());
@@ -203,19 +204,18 @@ public class ApiTests : IClassFixture<Fabrica>
         var enviados = _f.Enviador.Enviados.Where(m => m.Destinatario is "a@example.test" or "b@example.test").ToList();
         Assert.Equal(2, enviados.Count);
         Assert.All(enviados, m => Assert.Equal("no-responder@example.test", m.Remitente));
-        Assert.Contains(enviados, m => m.Html.Contains("Cliente B") && m.Html.Contains("222"));
+        Assert.All(enviados, m => Assert.Equal("Completa tu formulario de enrolamiento", m.Asunto));
+        Assert.Contains(enviados, m => m.Html.Contains("Cliente B") && m.Html.Contains("Contratante B"));
 
-        var otra = await _c.PostAsJsonAsync($"/api/lotes/{id}/envio", new { asunto = "x", cuerpo });
-        Assert.Equal(HttpStatusCode.Conflict, otra.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await _c.PostAsync($"/api/lotes/{id}/envio", null)).StatusCode);
     }
 
     [Fact]
     public async Task Reintenta_solo_los_fallidos()
     {
-        var c = await Configuracion();
         var lote = await Subir(_c, "a.csv", Csv("SPN-F.GTP-61;A;A;1;ok1@example.test", "SPN-F.GTP-61;B;B;2;falla@example.test"));
         var id = lote.GetProperty("id").ToString();
-        await _c.PostAsJsonAsync($"/api/lotes/{id}/envio", new { asunto = "Asunto", cuerpo = c.GetProperty("cuerpoPorDefecto").GetString() });
+        await _c.PostAsync($"/api/lotes/{id}/envio", null);
         var fin = await EsperarFin(_c, id);
         Assert.Equal(1, fin.GetProperty("resumen").GetProperty("fallida").GetInt32());
         var fallida = fin.GetProperty("filas").EnumerateArray().Single(f => f.GetProperty("estado").GetString() == "Fallida");
@@ -227,17 +227,37 @@ public class ApiTests : IClassFixture<Fabrica>
         Assert.Equal(antes, _f.Enviador.Enviados.Count(m => m.Destinatario == "ok1@example.test")); // no reenvía los exitosos
     }
 
-    [Theory]
-    [InlineData("", "<p>{{Enlace}}</p>")]
-    [InlineData("Asunto", "<p>sin enlace</p>")]
-    [InlineData("Asunto", "<p>{{Enlace}} {{Desconocido}}</p>")]
-    [InlineData("Asunto {{Enlace}}", "<p>{{Enlace}}</p>")]
-    public async Task Rechaza_plantilla_invalida(string asunto, string cuerpo)
+    [Fact]
+    public async Task Sin_imagenes_configuradas_no_envia_y_la_vista_previa_lo_advierte()
     {
-        var lote = await Subir(_c, "a.csv", Csv("SPN-F.GTP-61;A;A;1;x@example.test"));
-        var r = await _c.PostAsJsonAsync($"/api/lotes/{lote.GetProperty("id")}/envio", new { asunto, cuerpo });
+        using var f = new Fabrica
+        {
+            Config = new()
+            {
+                ["Correo:ImagenesBaseUrl"] = "", ["Correo:Modo"] = "Oracle",
+                ["Oracle:DataSource"] = "host:1521/servicio", ["Oracle:Usuario"] = "u", ["Oracle:Clave"] = "c",
+            },
+        };
+        var c = f.ClienteConSesion();
+        var lote = await Subir(c, "a.csv", Csv("SPN-F.GTP-61;A;A;1;x@example.test"));
+        var id = lote.GetProperty("id").ToString();
+
+        var v = await c.GetFromJsonAsync<JsonElement>($"/api/lotes/{id}/vista-previa");
+        Assert.Contains("src=\"/correo/encabezado.jpg\"", v.GetProperty("html").GetString());   // imágenes del propio portal
+        Assert.Contains(v.GetProperty("advertencias").EnumerateArray(), a => a.GetString()!.Contains("ImagenesBaseUrl"));
+
+        var r = await c.PostAsync($"/api/lotes/{id}/envio", null);
         Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await _c.GetAsync($"/api/lotes/{lote.GetProperty("id")}")).StatusCode);
+        Assert.Empty(f.Enviador.Enviados);
+    }
+
+    [Fact]
+    public async Task La_peticion_de_envio_ya_no_lleva_html()
+    {
+        // El WAF bloqueaba el POST con el HTML del correo: ahora la vista previa es GET y el envío no tiene cuerpo.
+        var lote = await Subir(_c, "a.csv", Csv("SPN-F.GTP-61;A;A;1;x@example.test"));
+        var r = await _c.PostAsJsonAsync($"/api/lotes/{lote.GetProperty("id")}/vista-previa", new { cuerpo = "<p>x</p>" });
+        Assert.NotEqual(HttpStatusCode.OK, r.StatusCode);
     }
 
     [Fact]
@@ -251,14 +271,6 @@ public class ApiTests : IClassFixture<Fabrica>
     public async Task Lote_inexistente_404()
     {
         Assert.Equal(HttpStatusCode.NotFound, (await _c.GetAsync($"/api/lotes/{Guid.NewGuid()}")).StatusCode);
-    }
-
-    [Fact]
-    public async Task Envio_exige_json()
-    {
-        var lote = await Subir(_c, "a.csv", Csv("SPN-F.GTP-61;A;A;1;x@example.test"));
-        var r = await _c.PostAsync($"/api/lotes/{lote.GetProperty("id")}/envio", new FormUrlEncodedContent([new("asunto", "x")]));
-        Assert.Equal(HttpStatusCode.UnsupportedMediaType, r.StatusCode);
     }
 
     [Fact]

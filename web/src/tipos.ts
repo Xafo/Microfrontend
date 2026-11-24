@@ -12,9 +12,9 @@ export interface Configuracion {
   filasMaximas: number
   modoEnvio: 'Simulado' | 'Oracle'
   remitente: string
-  asuntoPorDefecto: string
-  cuerpoPorDefecto: string
-  marcadores: string[]
+  asunto: string
+  imagenesCorreoConfiguradas: boolean
+  descargaCampanaConfigurada: boolean
 }
 
 export interface Enlace {
@@ -62,7 +62,13 @@ export interface EstadoEnvio {
 
 export interface VistaPrevia {
   asunto: string
-  asuntoModificado: boolean
   html: string
   errores: string[]
+  advertencias: string[]
+}
+
+export interface DescargaCampana {
+  archivo: Blob
+  nombre: string
+  total: number
 }

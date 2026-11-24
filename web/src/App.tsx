@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, ErrorApi, registrarSesionExpirada } from './api'
 import { Aviso } from './componentes/Comunes'
+import { DescargaCampana } from './componentes/DescargaCampana'
 import { Encabezado } from './componentes/Encabezado'
 import { Login } from './componentes/Login'
 import { PasoCarga } from './componentes/PasoCarga'
@@ -19,8 +20,7 @@ export function App() {
   const [paso, setPaso] = useState<Paso>('carga')
   const [lote, setLote] = useState<Lote | null>(null)
   const [estado, setEstado] = useState<EstadoEnvio | null>(null)
-  const [asunto, setAsunto] = useState('')
-  const [cuerpo, setCuerpo] = useState('')
+  const [modo, setModo] = useState<'envio' | 'campana'>('envio')
 
   useEffect(() => {
     registrarSesionExpirada(() => {
@@ -33,7 +33,7 @@ export function App() {
   useEffect(() => {
     if (!usuario || config) return
     api.configuracion()
-      .then((c) => { setConfig(c); setAsunto(c.asuntoPorDefecto); setCuerpo(c.cuerpoPorDefecto) })
+      .then((c) => setConfig(c))
       .catch((e) => setErrorConfig(e instanceof ErrorApi ? e.message : 'No se pudo cargar la configuración.'))
   }, [usuario, config])
 
@@ -87,14 +87,23 @@ export function App() {
         {errorConfig && <Aviso tipo="error">{errorConfig}</Aviso>}
         {config && (
           <>
+            <div className="modos" role="tablist" aria-label="Opciones del portal">
+              <button type="button" role="tab" aria-selected={modo === 'envio'} className={modo === 'envio' ? 'activo' : ''}
+                onClick={() => setModo('envio')}>Enviar enlaces</button>
+              <button type="button" role="tab" aria-selected={modo === 'campana'} className={modo === 'campana' ? 'activo' : ''}
+                onClick={() => setModo('campana')}>Descargar información de campaña</button>
+            </div>
+            {modo === 'campana' && <DescargaCampana config={config} />}
+            {modo === 'envio' && <>
             <Pasos actual={paso} habilitados={habilitados} onIr={(p) => (p === 'carga' ? nuevo() : setPaso(p))} />
             {paso === 'carga' && <PasoCarga config={config} onLote={(l) => { setLote(l); setEstado(null); setPaso('revision') }} />}
             {paso === 'revision' && lote && <PasoRevision lote={lote} onNuevo={nuevo} onContinuar={() => setPaso('correo')} />}
             {paso === 'correo' && lote && (
-              <PasoCorreo lote={lote} config={config} asunto={asunto} cuerpo={cuerpo} onAsunto={setAsunto} onCuerpo={setCuerpo}
+              <PasoCorreo lote={lote} config={config}
                 onAtras={() => setPaso('revision')} onEnviado={() => { setPaso('envio'); consultar() }} />
             )}
             {paso === 'envio' && lote && <PasoEnvio lote={lote} estado={estado} onActualizar={setEstado} onNuevo={nuevo} />}
+            </>}
           </>
         )}
       </main>

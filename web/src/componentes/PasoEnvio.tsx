@@ -68,7 +68,7 @@ export function PasoEnvio({ lote, estado, onActualizar, onNuevo }: Props) {
       <div className="tabla-contenedor">
         <table className="tabla">
           <thead>
-            <tr><th>Fila</th><th>Nombre del cliente</th><th>Número de póliza</th><th>Correo</th><th>Estado</th><th>Hora</th><th>Detalle</th></tr>
+            <tr><th>Fila</th><th>Nombre del cliente</th><th>Agrupador</th><th>Correo</th><th>Estado</th><th>Hora</th><th>Detalle</th></tr>
           </thead>
           <tbody>
             {filas.map((f) => {

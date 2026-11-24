@@ -1,0 +1,162 @@
+[
+  {
+    "solicitud": {
+      "solicitudId": "1",
+      "tipoFormulario": "61",
+      "estado": "ENVIADA",
+      "fechaEnvio": null,
+      "datos": {
+        "tipoFormulario": "61",
+        "nombreContratante": "EMPRESA DE PRUEBA",
+        "numeroPoliza": "CAMP-001",
+        "primerApellido": "PEREZ",
+        "segundoApellido": "LOPEZ",
+        "primerNombre": "ANA",
+        "segundoNombre": "MARIA",
+        "tipoDocumento": "1",
+        "numeroDocumento": "0801-1990-00001",
+        "fechaNacimiento": "05/03/1990",
+        "nacionalidad": "HONDURAS",
+        "profesionOficio": "CONTADORA",
+        "fechaIngresoLabores": "01/10/2026",
+        "fechaIngresoPoliza": "01/11/2026",
+        "edad": 30,
+        "celular": "99990001",
+        "telefonoFijo": "22220001",
+        "email": "prueba@example.test",
+        "sexo": "F",
+        "otpCodigo": "000000",
+        "beneficiarios": null
+      },
+      "beneficiarios": {
+        "vida": [],
+        "contingencia": [],
+        "dependientes": []
+      },
+      "metadata": {
+        "versionJson": 1,
+        "origen": "prueba"
+      }
+    }
+  },
+  {
+    "solicitud": {
+      "solicitudId": "2",
+      "tipoFormulario": "61",
+      "estado": "ENVIADA",
+      "fechaEnvio": null,
+      "datos": {
+        "tipoFormulario": "61",
+        "nombreContratante": "EMPRESA DE PRUEBA",
+        "numeroPoliza": "camp-001 ",
+        "primerApellido": "NUÑEZ",
+        "segundoApellido": "",
+        "primerNombre": "JOSE",
+        "segundoNombre": "",
+        "tipoDocumento": "1",
+        "numeroDocumento": "0001-2000-00099",
+        "fechaNacimiento": "31/12/2000",
+        "nacionalidad": "HONDURAS",
+        "profesionOficio": "INGENIERO",
+        "fechaIngresoLabores": "01/10/2026",
+        "fechaIngresoPoliza": "15/11/2026",
+        "edad": 30,
+        "celular": "99990002",
+        "telefonoFijo": "",
+        "email": "prueba@example.test",
+        "sexo": "M",
+        "otpCodigo": "000000",
+        "beneficiarios": null
+      },
+      "beneficiarios": {
+        "vida": [],
+        "contingencia": [],
+        "dependientes": []
+      },
+      "metadata": {
+        "versionJson": 1,
+        "origen": "prueba"
+      }
+    }
+  },
+  {
+    "solicitud": {
+      "solicitudId": "3",
+      "tipoFormulario": "61",
+      "estado": "BORRADOR",
+      "fechaEnvio": null,
+      "datos": {
+        "tipoFormulario": "61",
+        "nombreContratante": "EMPRESA DE PRUEBA",
+        "numeroPoliza": "CAMP-001",
+        "primerApellido": "BORRADOR",
+        "segundoApellido": "NO",
+        "primerNombre": "DEBE",
+        "segundoNombre": "SALIR",
+        "tipoDocumento": "1",
+        "numeroDocumento": "0801-1990-00003",
+        "fechaNacimiento": "01/01/1990",
+        "nacionalidad": "HONDURAS",
+        "profesionOficio": "X",
+        "fechaIngresoLabores": "01/10/2026",
+        "fechaIngresoPoliza": "01/11/2026",
+        "edad": 30,
+        "celular": "1",
+        "telefonoFijo": "",
+        "email": "prueba@example.test",
+        "sexo": "F",
+        "otpCodigo": "000000",
+        "beneficiarios": null
+      },
+      "beneficiarios": {
+        "vida": [],
+        "contingencia": [],
+        "dependientes": []
+      },
+      "metadata": {
+        "versionJson": 1,
+        "origen": "prueba"
+      }
+    }
+  },
+  {
+    "solicitud": {
+      "solicitudId": "4",
+      "tipoFormulario": "61",
+      "estado": "ENVIADA",
+      "fechaEnvio": null,
+      "datos": {
+        "tipoFormulario": "61",
+        "nombreContratante": "EMPRESA DE PRUEBA",
+        "numeroPoliza": "OTRA-CAMP",
+        "primerApellido": "OTRA",
+        "segundoApellido": "CAMPANA",
+        "primerNombre": "NO",
+        "segundoNombre": "SALE",
+        "tipoDocumento": "1",
+        "numeroDocumento": "0801-1990-00004",
+        "fechaNacimiento": "01/01/1990",
+        "nacionalidad": "HONDURAS",
+        "profesionOficio": "X",
+        "fechaIngresoLabores": "01/10/2026",
+        "fechaIngresoPoliza": "01/11/2026",
+        "edad": 30,
+        "celular": "1",
+        "telefonoFijo": "",
+        "email": "prueba@example.test",
+        "sexo": "M",
+        "otpCodigo": "000000",
+        "beneficiarios": null
+      },
+      "beneficiarios": {
+        "vida": [],
+        "contingencia": [],
+        "dependientes": []
+      },
+      "metadata": {
+        "versionJson": 1,
+        "origen": "prueba"
+      }
+    }
+  }
+]
