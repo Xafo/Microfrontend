@@ -175,7 +175,7 @@ public class ApiTests : IClassFixture<Fabrica>
             "SPN-F.GTP-61;Contratante Uno;Ana;CAMP-1;ana@example.test",
             "SPN-F.GTP-61;Compañía <Dos>;José <b>Pérez</b>;CAMP-1;jose@example.test"));
         var v = await _c.GetFromJsonAsync<JsonElement>($"/api/lotes/{lote.GetProperty("id")}/vista-previa?numeroFila=3");
-        var html = v.GetProperty("html").GetString()!;
+        var html = v.GetProperty("html").GetString()!.Replace("\r\n", "");
 
         Assert.Equal("Completa tu formulario de enrolamiento", v.GetProperty("asunto").GetString());
         Assert.Contains("Estimado(a) <strong>Jos&#233; &lt;b&gt;P&#233;rez&lt;/b&gt;</strong>", html);
@@ -205,7 +205,8 @@ public class ApiTests : IClassFixture<Fabrica>
         Assert.Equal(2, enviados.Count);
         Assert.All(enviados, m => Assert.Equal("no-responder@example.test", m.Remitente));
         Assert.All(enviados, m => Assert.Equal("Completa tu formulario de enrolamiento", m.Asunto));
-        Assert.Contains(enviados, m => m.Html.Contains("Cliente B") && m.Html.Contains("Contratante B"));
+        Assert.Contains(enviados, m => m.Html.Replace("\r\n", "").Contains("Cliente B") && m.Html.Replace("\r\n", "").Contains("Contratante B"));
+        Assert.All(enviados, m => Assert.All(m.Html.Split("\r\n"), l => Assert.True(l.Length <= 998)));   // límite SMTP
 
         Assert.Equal(HttpStatusCode.Conflict, (await _c.PostAsync($"/api/lotes/{id}/envio", null)).StatusCode);
     }
@@ -283,6 +284,37 @@ public class ApiTests : IClassFixture<Fabrica>
 
 public class ArranqueTests
 {
+    private static readonly Dictionary<string, string?> OracleOk = new()
+    {
+        ["Correo:Remitente"] = "notificaciones@example.test",
+        ["Oracle:DataSource"] = "host:1521/servicio", ["Oracle:Usuario"] = "u", ["Oracle:Clave"] = "c",
+    };
+
+    [Theory]
+    [InlineData("Development", "http://172.26.12.34/MFOnboardingDigital/correo")]   // servidor interno sin certificado, sin "/" final
+    [InlineData("Staging", "http://servidor-qa/MFOnboardingDigital/correo/")]
+    [InlineData("Production", "http://172.26.12.34/MFOnboardingDigital/correo/")]          // también en Production
+    [InlineData("Production", "https://seguros.example.test/MFOnboardingDigital/correo")]
+    public async Task Imagenes_por_http_o_https_en_cualquier_ambiente(string ambiente, string url)
+    {
+        using var f = new Fabrica { Ambiente = ambiente, Config = new(OracleOk) { ["Correo:ImagenesBaseUrl"] = url } };
+        var c = f.ClienteConSesion();
+        var lote = await ApiTests.Subir(c, "a.csv", ApiTests.Csv("SPN-F.GTP-61;A;Ana;C1;a@example.test"));
+        var v = await c.GetFromJsonAsync<JsonElement>($"/api/lotes/{lote.GetProperty("id")}/vista-previa");
+        Assert.Contains($"src=\"{url.TrimEnd('/')}/encabezado.jpg\"", v.GetProperty("html").GetString());
+        Assert.Empty(v.GetProperty("advertencias").EnumerateArray());
+    }
+
+    [Theory]
+    [InlineData("Production", "/MFOnboardingDigital/correo/", "absoluta")]
+    [InlineData("Development", "ftp://servidor/correo/", "absoluta")]
+    public void Imagenes_invalidas_no_arranca(string ambiente, string url, string mensaje)
+    {
+        using var f = new Fabrica { Ambiente = ambiente, Config = new(OracleOk) { ["Correo:ImagenesBaseUrl"] = url } };
+        var ex = Assert.ThrowsAny<Exception>(() => f.CreateClient());
+        Assert.Contains(mensaje, ex.ToString());
+    }
+
     [Fact]
     public void Production_no_permite_modo_simulado()
     {

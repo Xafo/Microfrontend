@@ -16,7 +16,7 @@ public sealed class CorreoOptions
     public string Asunto { get; set; } = "Completa tu formulario de enrolamiento";
 
     /// <summary>
-    /// URL HTTPS pública (terminada en "/") donde están las imágenes del correo: encabezado.jpg,
+    /// URL pública donde están las imágenes del correo (http o https; la "/" final es opcional): encabezado.jpg,
     /// boton-enrolamiento.png, logo-ficohsa-seguros.png y pie.jpg. El portal las publica en {sitio}/correo/,
     /// p. ej. https://www.ficohsasegurosonlineqa.com/MFOnboardingDigital/correo/. Sin este valor no se envía.
     /// </summary>

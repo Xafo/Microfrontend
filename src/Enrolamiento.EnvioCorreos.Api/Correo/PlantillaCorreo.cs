@@ -81,12 +81,41 @@ public sealed class PlantillaCorreo(IOptions<CorreoOptions> opciones)
           .Append($"<tr><td><img src=\"{img}pie.jpg\" width=\"600\" alt=\"¿Tienes consultas? Escríbenos por WhatsApp al 9494-3426, llámanos al 4747 o al 2276-3960, o visita nuestras oficinas de Ficohsa Seguros a nivel nacional.\" style=\"display:block;width:100%;max-width:600px;height:auto;border:0;\"></td></tr>")
           .Append("</table></td></tr></table></body></html>");
 
-        var html = AAsciiSeguro(sb.ToString());
+        var html = LimitarLineas(AAsciiSeguro(sb.ToString()));
         var asunto = _o.Asunto ?? "";
         var asuntoAscii = SinTildes(asunto);
         if (html.Length > _o.LongitudMaximaMensaje)
             errores.Add($"El correo mide {html.Length} caracteres y supera el máximo de {_o.LongitudMaximaMensaje} de pr_mail.");
         return new CorreoRenderizado(asuntoAscii, asuntoAscii != asunto, html, errores);
+    }
+
+    /// <summary>
+    /// SMTP (RFC 5321) admite como máximo 998 caracteres por línea: un HTML en una sola línea larga puede ser
+    /// rechazado o descartado por el servidor de correo (y pr_mail no reporta el error). Se parte el HTML en
+    /// líneas de hasta <paramref name="maximo"/> caracteres cortando en espacios o después de "&gt;", lugares donde
+    /// un salto de línea no cambia cómo se ve. Ninguna línea queda empezando con "." (punto de fin de datos en SMTP).
+    /// </summary>
+    public static string LimitarLineas(string html, int maximo = 900)
+    {
+        var sb = new StringBuilder(html.Length + html.Length / maximo * 2 + 16);
+        var linea = 0;
+        var ultimoCorte = -1;      // posición en sb donde se puede cortar (después de un espacio o de '>')
+        for (int i = 0; i < html.Length; i++)
+        {
+            var c = html[i];
+            sb.Append(c);
+            if (c == '\n') { linea = 0; ultimoCorte = -1; continue; }
+            linea++;
+            var siguiente = i + 1 < html.Length ? html[i + 1] : '\0';
+            if ((c == ' ' || c == '>') && siguiente != '.' && siguiente != '\r' && siguiente != '\n') ultimoCorte = sb.Length;
+            if (linea >= maximo && ultimoCorte > 0)
+            {
+                sb.Insert(ultimoCorte, "\r\n");
+                linea = sb.Length - (ultimoCorte + 2);
+                ultimoCorte = -1;
+            }
+        }
+        return sb.ToString();
     }
 
     /// <summary>Todo carácter fuera de ASCII imprimible pasa a entidad numérica.</summary>
