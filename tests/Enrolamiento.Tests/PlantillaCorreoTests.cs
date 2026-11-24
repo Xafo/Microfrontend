@@ -24,7 +24,7 @@ public class PlantillaCorreoTests
     [Fact]
     public void Inserta_cliente_y_contratante_escapados_y_en_ascii()
     {
-        var html = Crear().Renderizar(D).Html;
+        var html = Crear().Renderizar(D).Html.Replace("\r\n", "");
         Assert.Contains("Estimado(a) <strong>Jos&#233; P&#233;rez &lt;b&gt;</strong>", html);
         Assert.Contains("<strong>Compa&#241;&#237;a &amp; Hijos</strong> pone a <strong>disposici&#243;n de sus colaboradores.</strong>", html);
         Assert.All(html, c => Assert.True(c < 128));
@@ -36,6 +36,29 @@ public class PlantillaCorreoTests
         var html = Crear().Renderizar(D).Html;
         Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(html, "href=\"https://x.test/\\?datos=abc_-123\"").Count);
         Assert.Contains("boton-enrolamiento.png", html);
+    }
+
+    [Fact]
+    public void Ninguna_linea_supera_el_limite_de_smtp_ni_empieza_con_punto()
+    {
+        var largo = D with { NombreCliente = new string('A', 200), NombreContratante = string.Join(" ", Enumerable.Repeat("Empresa", 40)) };
+        var html = Crear().Renderizar(largo).Html;
+        var lineas = html.Split("\r\n");
+        Assert.True(lineas.Length > 3);
+        Assert.All(lineas, l => Assert.True(l.Length <= 998, $"Línea de {l.Length} caracteres"));
+        Assert.All(lineas, l => Assert.False(l.StartsWith('.')));
+        Assert.DoesNotContain('\n', html.Replace("\r\n", ""));   // solo saltos CRLF
+    }
+
+    [Theory]
+    [InlineData(10)] [InlineData(50)] [InlineData(900)]
+    public void Partir_lineas_no_cambia_el_contenido_visible(int maximo)
+    {
+        var html = Crear().Renderizar(D).Html.Replace("\r\n", "");
+        var partido = PlantillaCorreo.LimitarLineas(html, maximo);
+        // Solo se insertan CRLF después de un espacio o de '>': al quitarlos queda el mismo HTML.
+        Assert.Equal(html, partido.Replace("\r\n", ""));
+        Assert.Contains("href=\"https://x.test/?datos=abc_-123\"", partido.Replace("\r\n", ""));
     }
 
     [Fact]

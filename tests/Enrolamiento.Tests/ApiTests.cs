@@ -175,7 +175,7 @@ public class ApiTests : IClassFixture<Fabrica>
             "SPN-F.GTP-61;Contratante Uno;Ana;CAMP-1;ana@example.test",
             "SPN-F.GTP-61;Compañía <Dos>;José <b>Pérez</b>;CAMP-1;jose@example.test"));
         var v = await _c.GetFromJsonAsync<JsonElement>($"/api/lotes/{lote.GetProperty("id")}/vista-previa?numeroFila=3");
-        var html = v.GetProperty("html").GetString()!;
+        var html = v.GetProperty("html").GetString()!.Replace("\r\n", "");
 
         Assert.Equal("Completa tu formulario de enrolamiento", v.GetProperty("asunto").GetString());
         Assert.Contains("Estimado(a) <strong>Jos&#233; &lt;b&gt;P&#233;rez&lt;/b&gt;</strong>", html);
@@ -205,7 +205,8 @@ public class ApiTests : IClassFixture<Fabrica>
         Assert.Equal(2, enviados.Count);
         Assert.All(enviados, m => Assert.Equal("no-responder@example.test", m.Remitente));
         Assert.All(enviados, m => Assert.Equal("Completa tu formulario de enrolamiento", m.Asunto));
-        Assert.Contains(enviados, m => m.Html.Contains("Cliente B") && m.Html.Contains("Contratante B"));
+        Assert.Contains(enviados, m => m.Html.Replace("\r\n", "").Contains("Cliente B") && m.Html.Replace("\r\n", "").Contains("Contratante B"));
+        Assert.All(enviados, m => Assert.All(m.Html.Split("\r\n"), l => Assert.True(l.Length <= 998)));   // límite SMTP
 
         Assert.Equal(HttpStatusCode.Conflict, (await _c.PostAsync($"/api/lotes/{id}/envio", null)).StatusCode);
     }
