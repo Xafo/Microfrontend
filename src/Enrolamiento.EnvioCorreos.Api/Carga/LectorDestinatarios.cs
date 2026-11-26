@@ -111,10 +111,21 @@ public sealed class LectorDestinatarios(IOptions<CargaOptions> carga, ValidadorD
 
             var clave = $"{fila.TipoFormulario}|{fila.NumeroPoliza}|{fila.Correo}".ToLowerInvariant();
             if (vistos.TryGetValue(clave, out var anterior))
-                fila.Errores.Add(new("Fila", $"Duplicada con la fila {anterior} (mismo tipo, póliza y correo)."));
+                fila.Errores.Add(new("Fila", $"Duplicada con la fila {anterior} (mismo tipo, agrupador y correo)."));
             else vistos[clave] = fila.NumeroFila;
 
             filas.Add(fila);
+        }
+
+        // Una campaña (agrupador) usa un solo tipo de formulario: si se mezclan, todas sus filas quedan con error.
+        foreach (var grupo in filas.Where(f => f.NumeroPoliza.Length > 0 && f.TipoFormulario.Length > 0)
+                     .GroupBy(f => f.NumeroPoliza, StringComparer.OrdinalIgnoreCase))
+        {
+            var tipos = grupo.Select(f => f.TipoFormulario).Distinct(StringComparer.Ordinal).ToList();
+            if (tipos.Count < 2) continue;
+            var mensaje = $"El agrupador «{grupo.Key}» tiene {tipos.Count} tipos de formulario ({string.Join(", ", tipos)}). " +
+                          "Una campaña debe usar un solo tipo de formulario.";
+            foreach (var f in grupo) f.Errores.Add(new("TipoFormulario", mensaje));
         }
 
         if (filas.Count == 0 && errores.Count == 0) errores.Add("El archivo no tiene filas con datos debajo de los encabezados.");

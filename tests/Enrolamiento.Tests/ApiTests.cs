@@ -103,7 +103,7 @@ public class ApiTests : IClassFixture<Fabrica>
     public async Task Configuracion_expone_plantilla_por_defecto_y_url_del_ambiente()
     {
         var c = await Configuracion();
-        Assert.Equal("Completa tu formulario de enrolamiento", c.GetProperty("asunto").GetString());
+        Assert.Equal("Programa de enrolamiento de seguro | {{NombreContratante}}", c.GetProperty("asunto").GetString());
         Assert.True(c.GetProperty("imagenesCorreoConfiguradas").GetBoolean());
         Assert.Contains("Agrupador", c.GetProperty("columnas").EnumerateArray().Select(x => x.GetString()));
         Assert.Equal("https://d3322rrb6yrsp3.cloudfront.net/", c.GetProperty("urlPublicaBase").GetString());
@@ -177,9 +177,9 @@ public class ApiTests : IClassFixture<Fabrica>
         var v = await _c.GetFromJsonAsync<JsonElement>($"/api/lotes/{lote.GetProperty("id")}/vista-previa?numeroFila=3");
         var html = v.GetProperty("html").GetString()!.Replace("\r\n", "");
 
-        Assert.Equal("Completa tu formulario de enrolamiento", v.GetProperty("asunto").GetString());
+        Assert.Equal("Programa de enrolamiento de seguro | Compania <Dos>", v.GetProperty("asunto").GetString());
         Assert.Contains("Estimado(a) <strong>Jos&#233; &lt;b&gt;P&#233;rez&lt;/b&gt;</strong>", html);
-        Assert.Contains("<strong>Compa&#241;&#237;a &lt;Dos&gt;</strong> pone a", html);
+        Assert.Contains("programa de seguro contratado por <strong>Compa&#241;&#237;a &lt;Dos&gt;</strong>.", html);
         Assert.Contains("href=\"https://d3322rrb6yrsp3.cloudfront.net/?datos=", html);
         Assert.Contains("src=\"https://cdn.example.test/correo/encabezado.jpg\"", html);
         Assert.Empty(v.GetProperty("advertencias").EnumerateArray());
@@ -204,7 +204,8 @@ public class ApiTests : IClassFixture<Fabrica>
         var enviados = _f.Enviador.Enviados.Where(m => m.Destinatario is "a@example.test" or "b@example.test").ToList();
         Assert.Equal(2, enviados.Count);
         Assert.All(enviados, m => Assert.Equal("no-responder@example.test", m.Remitente));
-        Assert.All(enviados, m => Assert.Equal("Completa tu formulario de enrolamiento", m.Asunto));
+        Assert.Contains(enviados, m => m.Asunto == "Programa de enrolamiento de seguro | Contratante A");
+        Assert.Contains(enviados, m => m.Asunto == "Programa de enrolamiento de seguro | Contratante B");
         Assert.Contains(enviados, m => m.Html.Replace("\r\n", "").Contains("Cliente B") && m.Html.Replace("\r\n", "").Contains("Contratante B"));
         Assert.All(enviados, m => Assert.All(m.Html.Split("\r\n"), l => Assert.True(l.Length <= 998)));   // límite SMTP
 
@@ -226,6 +227,20 @@ public class ApiTests : IClassFixture<Fabrica>
         Assert.Equal(HttpStatusCode.Accepted, (await _c.PostAsync($"/api/lotes/{id}/reintentar", null)).StatusCode);
         await EsperarFin(_c, id);
         Assert.Equal(antes, _f.Enviador.Enviados.Count(m => m.Destinatario == "ok1@example.test")); // no reenvía los exitosos
+    }
+
+    [Fact]
+    public async Task Agrupador_con_formularios_distintos_queda_con_error()
+    {
+        var lote = await Subir(_c, "a.csv", Csv(
+            "SPN-F.GTP-61;Empresa;Ana;CAMP-9;ana@example.test",
+            "SPN-F.GTP-62;Empresa;Luis;camp-9;luis@example.test",
+            "SPN-F.GTP-62;Empresa;Eva;CAMP-10;eva@example.test"));
+        var filas = lote.GetProperty("filas").EnumerateArray().ToList();
+        Assert.Equal(2, lote.GetProperty("resumen").GetProperty("invalida").GetInt32());
+        Assert.All(filas.Take(2), f => Assert.Contains(f.GetProperty("errores").EnumerateArray(),
+            e => e.GetProperty("mensaje").GetString()!.Contains("un solo tipo de formulario")));
+        Assert.Equal("Lista", filas[2].GetProperty("estado").GetString());   // otra campaña: no se afecta
     }
 
     [Fact]

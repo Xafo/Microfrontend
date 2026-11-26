@@ -37,7 +37,7 @@ Hoja `Destinatarios` (o la primera hoja que tenga estos encabezados). El orden d
 | Tipo de Formulario | Nombre completo, escrito: `SPN-F.GTP-61`, `SPN-F.GTP-62`, `SPN-F.GTP-63`, `SPN-F.GTP-64`, `SPN-F.GTP-101`, `SPN-F.GTP-161` o `COACEHL (SPN-F.GTP-102)`. No importan mayúsculas ni espacios de más |
 | Nombre del Contratante | Obligatorio, máx. 200 |
 | Nombre del Cliente | Obligatorio, máx. 200 (saludo del correo; no viaja en el enlace) |
-| Agrupador | ID de la campaña (número de póliza, de gestión o agrupador). Obligatorio, máx. 30, letras/números/`-`/`/`. Antes se llamaba «Numero de Poliza»: ese encabezado se sigue aceptando |
+| Agrupador | ID de la campaña. **Un agrupador usa un solo tipo de formulario**: si se mezclan, esas filas quedan con error (número de póliza, de gestión o agrupador). Obligatorio, máx. 30, letras/números/`-`/`/`. Antes se llamaba «Numero de Poliza»: ese encabezado se sigue aceptando |
 | Correo | Un solo correo válido |
 | Enlace | Opcional; se ignora (lo genera el servidor) |
 | Suma Asegurada | Ya no se usa. Si viene en un archivo anterior, se ignora |
@@ -61,10 +61,11 @@ El tipo nuevo se acepta en la carga y aparece automáticamente en la leyenda del
 
 ## Correo (fijo)
 
-El correo **no se edita**: usa el diseño institucional *"Completa el formulario y asegura tu mundo"*. Va armado con 4 imágenes recortadas del diseño (`web/public/correo/`: `encabezado.jpg`, `boton-enrolamiento.png`, `logo-ficohsa-seguros.png`, `pie.jpg`) más texto HTML con los datos de cada fila:
+El correo **no se edita**: usa el diseño institucional *"Completa el formulario y asegura tu mundo"*. Va armado con 4 imágenes recortadas del diseño (`web/public/correo/`: `encabezado.jpg`, `boton-enrolamiento.png`, `logo-ficohsa-seguros.png`, `pie.png`; botón, logo y pie con fondo transparente para que en iOS y Android no aparezcan recuadros de color) más texto HTML con los datos de cada fila:
 
 - **Estimado(a)** → *Nombre del Cliente*
-- **… programa de seguros que** → *Nombre del Contratante* **pone a disposición de sus colaboradores.**
+- **… acceder al programa de seguro contratado por** → *Nombre del Contratante*
+- Asunto: **Programa de enrolamiento de seguro | {Nombre del Contratante}** (`Correo:Asunto`, admite `{{NombreContratante}}`)
 - Botón **Inicia tu enrolamiento aquí** → enlace cifrado, con un enlace de respaldo en texto y la fecha de vencimiento
 
 Se usan imágenes con el texto en HTML, y no texto encima de una sola imagen, porque Outlook no muestra imágenes de fondo. Asunto: `Correo:Asunto`. Como ya no viaja HTML desde la pantalla, el WAF no bloquea la vista previa ni el envío.
@@ -76,22 +77,29 @@ Pestaña **Descargar información de campaña** → se escribe el **ID de la cam
 1. `POST {SolicitudesApi:UrlBase}solicitud/auth/token` con `{ "username", "password" }` (variables `SolicitudesApi__Usuario` / `SolicitudesApi__Clave`) → `accessToken`.
 2. `GET {SolicitudesApi:UrlBase}solicitud/listar` con `Authorization: Bearer <token>`.
 3. Se filtran las solicitudes con `estado = ENVIADA` y `datos.numeroPoliza = agrupador` (sin distinguir mayúsculas ni espacios al inicio o al final).
-4. Se llena `Plantillas/Carga_Masiva.xlsx`, una fila por solicitud, solo en las columnas amarillas:
+4. Se llena `Plantillas/Carga_Masiva.xlsx`: por cada solicitud, una fila del **titular** (TIPOCLIEN `A`) y debajo una por cada **dependiente** (TIPOCLIEN `D`). Las filas de dependientes vacías que envía el formulario se descartan.
 
-| Columna | Dato de la solicitud |
-|---|---|
-| PRIMER APELLIDO / SEGUNDO APELLIDO | `primerApellido` / `segundoApellido` |
-| PRIMER NOMBRE / SEGUNDO NOMBRE | `primerNombre` / `segundoNombre` |
-| TIPODOC | `tipoDocumento` (número) |
-| NUMIDENTIDAD | `numeroDocumento` (texto, conserva guiones) |
-| PAISNAC | `nacionalidad` |
-| FECNAC | `fechaNacimiento` (fecha) |
-| SEXO | `sexo` |
-| PROFESION | `profesionOficio` |
-| TELEFONO1 / TELEFONO2 | `celular` / `telefonoFijo` |
-| FECHA INCLUSIÓN | `fechaIngresoPoliza` (fecha) |
+| Columna | Titular (A) | Dependiente (D) |
+|---|---|---|
+| TIPOPROCESO | `INC` | `INC` |
+| PRIMER/SEGUNDO APELLIDO, PRIMER/SEGUNDO NOMBRE | `datos.*` | `dependientes[].*` |
+| TIPOCLIEN | `A` | `D` |
+| CODPARENT | `1` masculino / `2` femenino | parentesco elegido: `3` cónyuge, `4` hijo/a, `30` hijastro/a |
+| TIPOPERSONA | `L` si DNI; `E` si carnet de residencia o pasaporte | `L` |
+| TIPODOC | `L`→`1`; `E`+pasaporte→`4`; `E`+carnet→`2` | `1` |
+| NUMIDENTIDAD | `numeroDocumento` (texto) | el del titular |
+| PAISNAC | `nacionalidad` | vacío |
+| FECNAC | `fechaNacimiento` (fecha) | `fecha` del dependiente |
+| SEXO | `sexo` → `F`/`M` | `genero` → `F`/`M` |
+| PROFESION, TELEFONO1, TELEFONO2 | `profesionOficio`, `celular`, `telefonoFijo` | vacío |
+| CONTINUIDAD_COBERTURA | `S` si el formulario está en `CargaMasiva:FormulariosContinuidad` (hoy `SPN-F.GTP-101`), si no `N` | igual que el titular |
+| SALARIO | `sueldoMensual` | vacío |
 
-Las demás columnas (TIPOPROCESO, TIPOCLIEN, CODPARENT, etc.) quedan vacías para el área que hace la carga. Se exporta solo al titular de cada solicitud, sin beneficiarios ni dependientes.
+Quedan **vacías**: DIRECCION, NUMCERTIFICADO, FECMOD y FECEXC. Las completa **el área comercial**: COD. RESP. PAGO, FECHA INCLUSIÓN, CODPUNTOSERVICIO y AFILIADA.
+
+**Configuración (`appsettings.json` → `CargaMasiva`):**
+- `TiposDocumento`: valor de `datos.tipoDocumento` del formulario → `DNI`, `CARNET` o `PASAPORTE`. Hoy está `"1": "DNI", "2": "CARNET", "3": "PASAPORTE"`; **confirmar con el equipo del formulario los códigos de carnet y pasaporte**.
+- `FormulariosContinuidad`: agregar aquí el formulario de continuidad CRL cuando tenga código.
 
 ## Login
 

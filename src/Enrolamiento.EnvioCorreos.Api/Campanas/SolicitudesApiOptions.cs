@@ -22,3 +22,27 @@ public sealed class SolicitudesApiOptions
         Uri.TryCreate(UrlBase, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps
         && new[] { Usuario, Clave }.All(v => !string.IsNullOrWhiteSpace(v) && !v.Contains("__"));
 }
+
+/// <summary>Reglas del Excel de carga masiva (sección "CargaMasiva"). Ver docs: reglas del área de suscripción.</summary>
+public sealed class CargaMasivaOptions
+{
+    public const string Seccion = "CargaMasiva";
+
+    /// <summary>
+    /// Valor de datos.tipoDocumento del formulario → clase de documento (DNI, CARNET o PASAPORTE).
+    /// DNI → TIPOPERSONA L / TIPODOC 1; CARNET → E / 2; PASAPORTE → E / 4.
+    /// </summary>
+    public Dictionary<string, string> TiposDocumento { get; set; } = [];
+
+    /// <summary>Tipos de formulario con continuidad de cobertura: CONTINUIDAD_COBERTURA = S (el resto N).</summary>
+    public List<string> FormulariosContinuidad { get; set; } = [];
+
+    public static readonly Dictionary<string, string> TiposDocumentoPorDefecto = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["1"] = "DNI", ["DNI"] = "DNI",
+        ["2"] = "CARNET", ["CARNET"] = "CARNET", ["CARNET DE RESIDENCIA"] = "CARNET", ["CARNET DE RESIDENTE"] = "CARNET",
+        ["3"] = "PASAPORTE", ["4"] = "PASAPORTE", ["PASAPORTE"] = "PASAPORTE",
+    };
+
+    public static readonly string[] FormulariosContinuidadPorDefecto = ["SPN-F.GTP-101", "101"];
+}

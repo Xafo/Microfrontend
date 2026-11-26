@@ -5,12 +5,18 @@ using Microsoft.Extensions.Options;
 
 namespace Enrolamiento.EnvioCorreos.Api.Campanas;
 
-/// <summary>Datos del titular de una solicitud, solo los que se exportan a la carga masiva.</summary>
+/// <summary>Dependiente declarado en la pantalla "Dependientes" del formulario.</summary>
+public sealed record DependienteCampana(
+    string PrimerNombre, string SegundoNombre, string PrimerApellido, string SegundoApellido,
+    string Parentesco, string Genero, string FechaNacimiento);
+
+/// <summary>Datos de una solicitud que se exportan a la carga masiva (titular + dependientes).</summary>
 public sealed record SolicitudCampana(
-    string SolicitudId, string Estado, string Agrupador,
+    string SolicitudId, string Estado, string Agrupador, string TipoFormulario,
     string PrimerApellido, string SegundoApellido, string PrimerNombre, string SegundoNombre,
     string TipoDocumento, string NumeroDocumento, string Nacionalidad, string FechaNacimiento, string Sexo,
-    string Profesion, string Celular, string TelefonoFijo, string FechaIngresoPoliza);
+    string Profesion, string Celular, string TelefonoFijo, string FechaIngresoPoliza, string SueldoMensual,
+    IReadOnlyList<DependienteCampana> Dependientes);
 
 public sealed class SolicitudesApiException(string mensaje, Exception? interna = null) : Exception(mensaje, interna);
 
@@ -38,12 +44,22 @@ public sealed class ClienteSolicitudes(HttpClient http, IOptions<SolicitudesApiO
         {
             var s = Prop(item, "solicitud") ?? item;           // { "solicitud": {...} } o directamente {...}
             var datos = Prop(s, "datos") ?? default;
+            var tipo = Texto(datos, "tipoFormulario") is { Length: > 0 } t ? t : Texto(s, "tipoFormulario");
+            var dependientes = new List<DependienteCampana>();
+            if (Prop(Prop(s, "beneficiarios") ?? default, "dependientes") is { ValueKind: JsonValueKind.Array } deps)
+                foreach (var dj in deps.EnumerateArray())
+                {
+                    var dep = new DependienteCampana(Texto(dj, "primerNombre"), Texto(dj, "segundoNombre"), Texto(dj, "primerApellido"),
+                        Texto(dj, "segundoApellido"), Texto(dj, "parentesco"), Texto(dj, "genero"), Texto(dj, "fecha"));
+                    // El formulario envía filas vacías cuando no hay dependientes: se descartan.
+                    if (dep.PrimerNombre.Length > 0 || dep.PrimerApellido.Length > 0) dependientes.Add(dep);
+                }
             res.Add(new SolicitudCampana(
-                Texto(s, "solicitudId"), Texto(s, "estado"), Texto(datos, "numeroPoliza"),
+                Texto(s, "solicitudId"), Texto(s, "estado"), Texto(datos, "numeroPoliza"), tipo,
                 Texto(datos, "primerApellido"), Texto(datos, "segundoApellido"), Texto(datos, "primerNombre"), Texto(datos, "segundoNombre"),
                 Texto(datos, "tipoDocumento"), Texto(datos, "numeroDocumento"), Texto(datos, "nacionalidad"), Texto(datos, "fechaNacimiento"),
                 Texto(datos, "sexo"), Texto(datos, "profesionOficio"), Texto(datos, "celular"), Texto(datos, "telefonoFijo"),
-                Texto(datos, "fechaIngresoPoliza")));
+                Texto(datos, "fechaIngresoPoliza"), Texto(datos, "sueldoMensual"), dependientes));
         }
         log.LogInformation("API de solicitudes: {Total} solicitudes recibidas", res.Count);
         return res;

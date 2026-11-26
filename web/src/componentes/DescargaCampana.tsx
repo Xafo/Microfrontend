@@ -77,12 +77,16 @@ export function DescargaCampana({ config }: { config: Configuracion }) {
       <div className="columnas-esperadas">
         <h2>Qué contiene el archivo</h2>
         <p className="texto-suave">
-          Una fila por cada solicitud en estado <strong>ENVIADA</strong> cuyo agrupador coincide. Se llenan las columnas de la plantilla de carga masiva:
+          Por cada solicitud en estado <strong>ENVIADA</strong> de la campaña: una fila del <strong>asegurado titular</strong> (TIPOCLIEN A) y
+          debajo una fila por cada <strong>dependiente</strong> (TIPOCLIEN D, con la identidad del titular). Se llenan:
         </p>
         <ul>
-          {['Primer apellido', 'Segundo apellido', 'Primer nombre', 'Segundo nombre', 'Tipo doc.', 'Núm. identidad', 'País de nacimiento',
-            'Fecha de nacimiento', 'Sexo', 'Profesión', 'Teléfono 1', 'Teléfono 2', 'Fecha de inclusión'].map((c) => <li key={c}>{c}</li>)}
+          {['TIPOPROCESO (INC)', 'Apellidos y nombres', 'TIPOCLIEN', 'CODPARENT', 'TIPOPERSONA', 'TIPODOC', 'NUMIDENTIDAD', 'PAISNAC',
+            'FECNAC', 'SEXO', 'PROFESION', 'TELEFONO1', 'TELEFONO2', 'CONTINUIDAD_COBERTURA', 'SALARIO'].map((c) => <li key={c}>{c}</li>)}
         </ul>
+        <p className="texto-suave">
+          Quedan vacías para el área comercial: COD. RESP. PAGO, FECHA INCLUSIÓN, CODPUNTOSERVICIO y AFILIADA (además de DIRECCION, NUMCERTIFICADO, FECMOD y FECEXC).
+        </p>
       </div>
     </section>
   )

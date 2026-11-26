@@ -26,7 +26,8 @@ public class PlantillaCorreoTests
     {
         var html = Crear().Renderizar(D).Html.Replace("\r\n", "");
         Assert.Contains("Estimado(a) <strong>Jos&#233; P&#233;rez &lt;b&gt;</strong>", html);
-        Assert.Contains("<strong>Compa&#241;&#237;a &amp; Hijos</strong> pone a <strong>disposici&#243;n de sus colaboradores.</strong>", html);
+        Assert.Contains("acceder al programa de seguro contratado por <strong>Compa&#241;&#237;a &amp; Hijos</strong>.", html);
+        Assert.DoesNotContain("colaboradores", html);
         Assert.All(html, c => Assert.True(c < 128));
     }
 
@@ -78,6 +79,22 @@ public class PlantillaCorreoTests
         Assert.Contains(Crear(imagenes: null).ValidarEnvio(), e => e.Contains("ImagenesBaseUrl"));
         Assert.Empty(Crear().ValidarEnvio());
         Assert.Empty(Crear(imagenes: null, modo: ModoEnvio.Simulado).ValidarEnvio());   // pruebas locales
+    }
+
+    [Fact]
+    public void Asunto_por_defecto_lleva_el_nombre_del_contratante()
+    {
+        var r = Crear().Renderizar(D);
+        Assert.Equal("Programa de enrolamiento de seguro | Compania & Hijos", r.Asunto);
+    }
+
+    [Fact]
+    public void Modo_claro_e_imagenes_transparentes_para_celulares()
+    {
+        var html = Crear().Renderizar(D).Html;
+        Assert.Contains("name=\"color-scheme\" content=\"light only\"", html);
+        Assert.Contains("pie.png", html);
+        Assert.DoesNotContain("pie.jpg", html);
     }
 
     [Fact]

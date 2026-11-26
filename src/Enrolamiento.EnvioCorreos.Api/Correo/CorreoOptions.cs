@@ -12,8 +12,8 @@ public sealed class CorreoOptions
     /// <summary>Parámetro "sender" de pr_mail.mail.</summary>
     public string Remitente { get; set; } = "";
 
-    /// <summary>Asunto fijo del correo (no editable desde la pantalla).</summary>
-    public string Asunto { get; set; } = "Completa tu formulario de enrolamiento";
+    /// <summary>Asunto del correo (no editable desde la pantalla). Admite {{NombreContratante}}.</summary>
+    public string Asunto { get; set; } = "Programa de enrolamiento de seguro | {{NombreContratante}}";
 
     /// <summary>
     /// URL pública donde están las imágenes del correo (http o https; la "/" final es opcional): encabezado.jpg,

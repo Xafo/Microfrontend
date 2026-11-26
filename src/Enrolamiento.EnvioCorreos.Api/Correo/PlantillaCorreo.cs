@@ -20,7 +20,7 @@ public sealed record CorreoRenderizado(string Asunto, bool AsuntoModificado, str
 /// </summary>
 public sealed class PlantillaCorreo(IOptions<CorreoOptions> opciones)
 {
-    public static readonly string[] Imagenes = ["encabezado.jpg", "boton-enrolamiento.png", "logo-ficohsa-seguros.png", "pie.jpg"];
+    public static readonly string[] Imagenes = ["encabezado.jpg", "boton-enrolamiento.png", "logo-ficohsa-seguros.png", "pie.png"];
 
     private const string Azul = "#0158CB";
     private const string Texto = "#002870";
@@ -54,10 +54,12 @@ public sealed class PlantillaCorreo(IOptions<CorreoOptions> opciones)
 
         var sb = new StringBuilder();
         sb.Append("<!DOCTYPE html><html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\">")
-          .Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head>")
-          .Append("<body style=\"margin:0;padding:0;background:#f2f5fa;\">")
+          .Append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
+          // Modo claro: evita que iOS/Android inviertan colores y pinten fondos detrás de las imágenes.
+          .Append("<meta name=\"color-scheme\" content=\"light only\"><meta name=\"supported-color-schemes\" content=\"light\"></head>")
+          .Append("<body style=\"margin:0;padding:0;background:#f2f5fa;\" bgcolor=\"#f2f5fa\">")
           .Append("<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f2f5fa;\"><tr><td align=\"center\" style=\"padding:16px 8px;\">")
-          .Append("<table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:600px;max-width:100%;background:#ffffff;\">")
+          .Append("<table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" bgcolor=\"#ffffff\" style=\"width:600px;max-width:100%;background:#ffffff;\">")
           // Encabezado (foto + "Completa el formulario y asegura tu mundo")
           .Append($"<tr><td><img src=\"{img}encabezado.jpg\" width=\"600\" alt=\"Tu bienestar merece estar asegurado. Completa el formulario y asegura tu mundo\" style=\"display:block;width:100%;max-width:600px;height:auto;border:0;\"></td></tr>")
           // Saludo
@@ -65,24 +67,27 @@ public sealed class PlantillaCorreo(IOptions<CorreoOptions> opciones)
           .Append($"Estimado(a) <strong>{E(d.NombreCliente)}</strong></td></tr>")
           // Mensaje con el contratante
           .Append($"<tr><td style=\"padding:20px 40px 0 40px;{fuente}font-size:17px;line-height:1.5;color:{Texto};\">")
-          .Append("Completa el siguiente formulario para iniciar tu proceso de enrolamiento y acceder al programa de seguros que ")
-          .Append($"<strong>{E(d.NombreContratante)}</strong> pone a <strong>disposición de sus colaboradores.</strong></td></tr>")
+          .Append("Completa el siguiente formulario para iniciar tu proceso de enrolamiento y acceder al programa de seguro contratado por ")
+          .Append($"<strong>{E(d.NombreContratante)}</strong>.</td></tr>")
           // Botón (imagen del diseño enlazada) + logo
+          // Botón y logo en celdas con ancho porcentual y separación: en celulares se achican sin pegarse.
           .Append("<tr><td style=\"padding:32px 24px 8px 24px;\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr>")
-          .Append($"<td align=\"left\" valign=\"middle\"><a href=\"{enlace}\" target=\"_blank\" style=\"text-decoration:none;\">")
-          .Append($"<img src=\"{img}boton-enrolamiento.png\" width=\"230\" alt=\"Inicia tu enrolamiento aquí\" style=\"display:block;width:230px;height:auto;border:0;{fuente}font-size:16px;font-weight:bold;color:{Azul};\"></a></td>")
-          .Append($"<td align=\"right\" valign=\"middle\"><img src=\"{img}logo-ficohsa-seguros.png\" width=\"160\" alt=\"Ficohsa Seguros\" style=\"display:block;width:160px;height:auto;border:0;\"></td>")
+          .Append($"<td width=\"55%\" align=\"left\" valign=\"middle\" bgcolor=\"#ffffff\"><a href=\"{enlace}\" target=\"_blank\" style=\"text-decoration:none;\">")
+          .Append($"<img src=\"{img}boton-enrolamiento.png\" width=\"230\" alt=\"Inicia tu enrolamiento aquí\" style=\"display:block;width:100%;max-width:230px;height:auto;border:0;{fuente}font-size:16px;font-weight:bold;color:{Azul};\"></a></td>")
+          .Append("<td width=\"10%\" style=\"font-size:0;line-height:0;\">&nbsp;</td>")
+          .Append($"<td width=\"35%\" align=\"right\" valign=\"middle\" bgcolor=\"#ffffff\"><img src=\"{img}logo-ficohsa-seguros.png\" width=\"160\" alt=\"Ficohsa Seguros\" style=\"display:block;width:100%;max-width:160px;height:auto;border:0;\"></td>")
           .Append("</tr></table></td></tr>")
           // Enlace de respaldo y vencimiento
           .Append($"<tr><td style=\"padding:8px 40px 24px 40px;{fuente}font-size:12px;line-height:1.5;color:#5b6676;\">")
           .Append($"Si el botón no funciona, <a href=\"{enlace}\" target=\"_blank\" style=\"color:{Azul};\">haz clic aquí</a>. ")
-          .Append($"Este enlace es personal y vence el {E(vence)}.</td></tr>")
+          .Append($"Este enlace es personal y vence el {E(vence)}{(vence.EndsWith('.') ? "" : ".")}</td></tr>")
           // Pie (consultas, WhatsApp, teléfonos)
-          .Append($"<tr><td><img src=\"{img}pie.jpg\" width=\"600\" alt=\"¿Tienes consultas? Escríbenos por WhatsApp al 9494-3426, llámanos al 4747 o al 2276-3960, o visita nuestras oficinas de Ficohsa Seguros a nivel nacional.\" style=\"display:block;width:100%;max-width:600px;height:auto;border:0;\"></td></tr>")
+          .Append($"<tr><td bgcolor=\"#ffffff\" style=\"background:#ffffff;line-height:0;\"><img src=\"{img}pie.png\" width=\"600\" alt=\"¿Tienes consultas? Escríbenos por WhatsApp al 9494-3426, llámanos al 4747 o al 2276-3960, o visita nuestras oficinas de Ficohsa Seguros a nivel nacional.\" style=\"display:block;width:100%;max-width:600px;height:auto;border:0;\"></td></tr>")
           .Append("</table></td></tr></table></body></html>");
 
         var html = LimitarLineas(AAsciiSeguro(sb.ToString()));
-        var asunto = _o.Asunto ?? "";
+        // El asunto admite {{NombreContratante}} (p. ej. "Programa de enrolamiento de seguro | {{NombreContratante}}").
+        var asunto = (_o.Asunto ?? "").Replace("{{NombreContratante}}", d.NombreContratante, StringComparison.OrdinalIgnoreCase).Trim();
         var asuntoAscii = SinTildes(asunto);
         if (html.Length > _o.LongitudMaximaMensaje)
             errores.Add($"El correo mide {html.Length} caracteres y supera el máximo de {_o.LongitudMaximaMensaje} de pr_mail.");
