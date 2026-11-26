@@ -91,6 +91,7 @@ s.AddSingleton<GeneradorPlantilla>();
 s.AddSingleton<GeneradorCargaMasiva>();
 // Descarga de campañas: API de solicitudes del formulario (token + listar). Usuario/clave por variables de entorno.
 s.AddOptions<SolicitudesApiOptions>().Bind(builder.Configuration.GetSection(SolicitudesApiOptions.Seccion));
+s.AddOptions<CargaMasivaOptions>().Bind(builder.Configuration.GetSection(CargaMasivaOptions.Seccion));
 s.AddHttpClient<ClienteSolicitudes>((sp, h) =>
     h.Timeout = TimeSpan.FromSeconds(Math.Max(5, sp.GetRequiredService<IOptions<SolicitudesApiOptions>>().Value.TiempoEsperaSegundos)));
 s.AddSingleton<PlantillaCorreo>();

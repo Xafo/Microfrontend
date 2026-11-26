@@ -54,7 +54,7 @@ public class CampanasTests
         await c.GetAsync($"/api/campanas/excel?agrupador={Uri.EscapeDataString(agrupador)}");
 
     [Fact]
-    public async Task Descarga_solo_las_enviadas_del_agrupador_con_las_columnas_amarillas()
+    public async Task Descarga_titulares_y_dependientes_con_las_reglas_de_suscripcion()
     {
         var (f, api) = Crear();
         using var _ = f;
@@ -67,32 +67,57 @@ public class CampanasTests
 
         using var libro = new XLWorkbook(await r.Content.ReadAsStreamAsync());
         var h = libro.Worksheet(1);
-        int Col(string encabezado) => h.Row(1).CellsUsed().Single(c => c.GetString() == encabezado).Address.ColumnNumber;
-        Assert.Equal(3, h.LastRowUsed()!.RowNumber());   // encabezado + 2 solicitudes
+        int C(string encabezado) => h.Row(1).CellsUsed().First(c => c.GetString() == encabezado).Address.ColumnNumber;
+        string T(int fila, string col) => h.Cell(fila, C(col)).GetString();
+        // Ana (titular) + 2 dependientes + José (titular, sin dependientes: la fila vacía del formulario se descarta)
+        Assert.Equal(5, h.LastRowUsed()!.RowNumber());
 
-        Assert.Equal("PEREZ", h.Cell(2, Col("PRIMER APELLIDO")).GetString());
-        Assert.Equal("LOPEZ", h.Cell(2, Col("SEGUNDO APELLIDO")).GetString());
-        Assert.Equal("ANA", h.Cell(2, Col("PRIMER NOMBRE")).GetString());
-        Assert.Equal("MARIA", h.Cell(2, Col("SEGUNDO NOMBRE")).GetString());
-        Assert.Equal(1, h.Cell(2, Col("TIPODOC")).GetValue<int>());
-        Assert.Equal("0801-1990-00001", h.Cell(2, Col("NUMIDENTIDAD")).GetString());
-        Assert.Equal("HONDURAS", h.Cell(2, Col("PAISNAC")).GetString());
-        Assert.Equal(new DateTime(1990, 3, 5), h.Cell(2, Col("FECNAC")).GetDateTime());
-        Assert.Equal("F", h.Cell(2, Col("SEXO")).GetString());
-        Assert.Equal("CONTADORA", h.Cell(2, Col("PROFESION")).GetString());
-        Assert.Equal("99990001", h.Cell(2, Col("TELEFONO1")).GetString());
-        Assert.Equal("22220001", h.Cell(2, Col("TELEFONO2")).GetString());
-        Assert.Equal(new DateTime(2026, 11, 1), h.Cell(2, Col("FECHA INCLUSIÓN")).GetDateTime());
+        // Fila 2: titular femenina con DNI
+        Assert.Equal("INC", T(2, "TIPOPROCESO"));
+        Assert.Equal(("PEREZ", "LOPEZ", "ANA", "MARIA"), (T(2, "PRIMER APELLIDO"), T(2, "SEGUNDO APELLIDO"), T(2, "PRIMER NOMBRE"), T(2, "SEGUNDO NOMBRE")));
+        Assert.Equal("A", T(2, "TIPOCLIEN"));
+        Assert.Equal(2, h.Cell(2, C("CODPARENT")).GetValue<int>());          // titular femenino
+        Assert.Equal("L", T(2, "TIPOPERSONA"));
+        Assert.Equal(1, h.Cell(2, C("TIPODOC")).GetValue<int>());
+        Assert.Equal("0801-1990-00001", T(2, "NUMIDENTIDAD"));
+        Assert.True(h.Cell(2, C("DIRECCION")).IsEmpty());
+        Assert.Equal("HONDURAS", T(2, "PAISNAC"));
+        Assert.Equal(new DateTime(1990, 3, 5), h.Cell(2, C("FECNAC")).GetDateTime());
+        Assert.Equal("F", T(2, "SEXO"));
+        Assert.Equal("CONTADORA", T(2, "PROFESION"));
+        Assert.Equal("99990001", T(2, "TELEFONO1"));
+        Assert.Equal("22220001", T(2, "TELEFONO2"));
+        Assert.Equal("N", T(2, "CONTINUIDAD_COBERTURA"));
+        Assert.Equal(15000m, h.Cell(2, C("SALARIO")).GetValue<decimal>());
+        // Las columnas del área comercial quedan vacías.
+        foreach (var col in new[] { "NUMCERTIFICADO", "COD. RESP. PAGO", "FECHA INCLUSIÓN", "FECMOD", "FECEXC", "CODPUNTOSERVICIO", "AFILIADA" })
+            Assert.True(h.Cell(2, C(col)).IsEmpty(), col);
 
-        // Segunda: agrupador con otra capitalización y espacio, ceros a la izquierda conservados, vacíos quedan vacíos.
-        Assert.Equal("NUÑEZ", h.Cell(3, Col("PRIMER APELLIDO")).GetString());
-        Assert.Equal("0001-2000-00099", h.Cell(3, Col("NUMIDENTIDAD")).GetString());
-        Assert.True(h.Cell(3, Col("TELEFONO2")).IsEmpty());
-        // Columnas no amarillas quedan vacías.
-        Assert.True(h.Cell(2, Col("TIPOPROCESO")).IsEmpty());
+        // Filas 3-4: dependientes de Ana (TIPOCLIEN D, parentesco elegido, identidad del titular, L/1)
+        Assert.Equal(("REYES", "EMMA", "D", 4), (T(3, "PRIMER APELLIDO"), T(3, "PRIMER NOMBRE"), T(3, "TIPOCLIEN"), h.Cell(3, C("CODPARENT")).GetValue<int>()));
+        Assert.Equal(("L", 1, "0801-1990-00001", "F"), (T(3, "TIPOPERSONA"), h.Cell(3, C("TIPODOC")).GetValue<int>(), T(3, "NUMIDENTIDAD"), T(3, "SEXO")));
+        Assert.Equal(new DateTime(2015, 2, 10), h.Cell(3, C("FECNAC")).GetDateTime());
+        Assert.True(h.Cell(3, C("SALARIO")).IsEmpty());
+        Assert.Equal(("CARLOS", 3, "M"), (T(4, "PRIMER NOMBRE"), h.Cell(4, C("CODPARENT")).GetValue<int>(), T(4, "SEXO")));
+
+        // Fila 5: titular masculino con pasaporte y formulario con continuidad de cobertura
+        Assert.Equal(("NUÑEZ", "A", 1), (T(5, "PRIMER APELLIDO"), T(5, "TIPOCLIEN"), h.Cell(5, C("CODPARENT")).GetValue<int>()));
+        Assert.Equal(("E", 4, "P1234567"), (T(5, "TIPOPERSONA"), h.Cell(5, C("TIPODOC")).GetValue<int>(), T(5, "NUMIDENTIDAD")));
+        Assert.Equal("S", T(5, "CONTINUIDAD_COBERTURA"));
+        Assert.Equal(18092.82m, h.Cell(5, C("SALARIO")).GetValue<decimal>());
+        Assert.True(h.Cell(5, C("TELEFONO2")).IsEmpty());
+
         // Borradores y otras campañas no salen.
         Assert.DoesNotContain(h.CellsUsed(), c => c.GetString() is "BORRADOR" or "OTRA");
     }
+
+    [Theory]
+    [InlineData("0003", 3)] [InlineData("0004", 4)] [InlineData("0030", 30)] [InlineData("CÓNYUGE", 3)] [InlineData("HIJASTRO/A", 30)] [InlineData("HIJO(A)", 4)]
+    public void Codigos_de_parentesco(string valor, int esperado) => Assert.Equal(esperado, GeneradorCargaMasiva.CodigoParentesco(valor));
+
+    [Theory]
+    [InlineData("FEMENINO", "F")] [InlineData("f", "F")] [InlineData("MASCULINO", "M")] [InlineData("M", "M")]
+    public void Sexo_normalizado(string valor, string esperado) => Assert.Equal(esperado, GeneradorCargaMasiva.Sexo(valor));
 
     [Fact]
     public async Task Campana_sin_solicitudes_enviadas_responde_404()

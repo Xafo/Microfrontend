@@ -2,11 +2,11 @@
   {
     "solicitud": {
       "solicitudId": "1",
-      "tipoFormulario": "61",
+      "tipoFormulario": "SPN-F.GTP-61",
       "estado": "ENVIADA",
       "fechaEnvio": null,
       "datos": {
-        "tipoFormulario": "61",
+        "tipoFormulario": "SPN-F.GTP-61",
         "nombreContratante": "EMPRESA DE PRUEBA",
         "numeroPoliza": "CAMP-001",
         "primerApellido": "PEREZ",
@@ -18,20 +18,44 @@
         "fechaNacimiento": "05/03/1990",
         "nacionalidad": "HONDURAS",
         "profesionOficio": "CONTADORA",
-        "fechaIngresoLabores": "01/10/2026",
         "fechaIngresoPoliza": "01/11/2026",
-        "edad": 30,
+        "sueldoMensual": "15000.00",
         "celular": "99990001",
         "telefonoFijo": "22220001",
         "email": "prueba@example.test",
-        "sexo": "F",
-        "otpCodigo": "000000",
-        "beneficiarios": null
+        "sexo": "F"
       },
       "beneficiarios": {
         "vida": [],
         "contingencia": [],
-        "dependientes": []
+        "dependientes": [
+          {
+            "id": "d",
+            "primerNombre": "EMMA",
+            "segundoNombre": "ELIZABETH",
+            "primerApellido": "REYES",
+            "segundoApellido": "",
+            "nombre": "",
+            "parentesco": "0004",
+            "genero": "F",
+            "fecha": "10/02/2015",
+            "peso": "",
+            "estatura": ""
+          },
+          {
+            "id": "d",
+            "primerNombre": "CARLOS",
+            "segundoNombre": "",
+            "primerApellido": "REYES",
+            "segundoApellido": "LOPEZ",
+            "nombre": "",
+            "parentesco": "0003",
+            "genero": "M",
+            "fecha": "01/01/1988",
+            "peso": "",
+            "estatura": ""
+          }
+        ]
       },
       "metadata": {
         "versionJson": 1,
@@ -42,36 +66,47 @@
   {
     "solicitud": {
       "solicitudId": "2",
-      "tipoFormulario": "61",
+      "tipoFormulario": "SPN-F.GTP-101",
       "estado": "ENVIADA",
       "fechaEnvio": null,
       "datos": {
-        "tipoFormulario": "61",
+        "tipoFormulario": "SPN-F.GTP-101",
         "nombreContratante": "EMPRESA DE PRUEBA",
         "numeroPoliza": "camp-001 ",
         "primerApellido": "NUÑEZ",
         "segundoApellido": "",
         "primerNombre": "JOSE",
         "segundoNombre": "",
-        "tipoDocumento": "1",
-        "numeroDocumento": "0001-2000-00099",
+        "tipoDocumento": "3",
+        "numeroDocumento": "P1234567",
         "fechaNacimiento": "31/12/2000",
-        "nacionalidad": "HONDURAS",
+        "nacionalidad": "GUATEMALA",
         "profesionOficio": "INGENIERO",
-        "fechaIngresoLabores": "01/10/2026",
-        "fechaIngresoPoliza": "15/11/2026",
-        "edad": 30,
+        "fechaIngresoPoliza": "01/11/2026",
+        "sueldoMensual": "18092.82",
         "celular": "99990002",
         "telefonoFijo": "",
         "email": "prueba@example.test",
-        "sexo": "M",
-        "otpCodigo": "000000",
-        "beneficiarios": null
+        "sexo": "M"
       },
       "beneficiarios": {
         "vida": [],
         "contingencia": [],
-        "dependientes": []
+        "dependientes": [
+          {
+            "id": "x",
+            "primerNombre": "",
+            "segundoNombre": "",
+            "primerApellido": "",
+            "segundoApellido": "",
+            "nombre": "",
+            "parentesco": "",
+            "genero": "",
+            "fecha": "",
+            "peso": "",
+            "estatura": ""
+          }
+        ]
       },
       "metadata": {
         "versionJson": 1,
@@ -82,11 +117,11 @@
   {
     "solicitud": {
       "solicitudId": "3",
-      "tipoFormulario": "61",
+      "tipoFormulario": "SPN-F.GTP-61",
       "estado": "BORRADOR",
       "fechaEnvio": null,
       "datos": {
-        "tipoFormulario": "61",
+        "tipoFormulario": "SPN-F.GTP-61",
         "nombreContratante": "EMPRESA DE PRUEBA",
         "numeroPoliza": "CAMP-001",
         "primerApellido": "BORRADOR",
@@ -98,20 +133,31 @@
         "fechaNacimiento": "01/01/1990",
         "nacionalidad": "HONDURAS",
         "profesionOficio": "X",
-        "fechaIngresoLabores": "01/10/2026",
         "fechaIngresoPoliza": "01/11/2026",
-        "edad": 30,
+        "sueldoMensual": "15000.00",
         "celular": "1",
         "telefonoFijo": "",
         "email": "prueba@example.test",
-        "sexo": "F",
-        "otpCodigo": "000000",
-        "beneficiarios": null
+        "sexo": "F"
       },
       "beneficiarios": {
         "vida": [],
         "contingencia": [],
-        "dependientes": []
+        "dependientes": [
+          {
+            "id": "x",
+            "primerNombre": "",
+            "segundoNombre": "",
+            "primerApellido": "",
+            "segundoApellido": "",
+            "nombre": "",
+            "parentesco": "",
+            "genero": "",
+            "fecha": "",
+            "peso": "",
+            "estatura": ""
+          }
+        ]
       },
       "metadata": {
         "versionJson": 1,
@@ -122,11 +168,11 @@
   {
     "solicitud": {
       "solicitudId": "4",
-      "tipoFormulario": "61",
+      "tipoFormulario": "SPN-F.GTP-61",
       "estado": "ENVIADA",
       "fechaEnvio": null,
       "datos": {
-        "tipoFormulario": "61",
+        "tipoFormulario": "SPN-F.GTP-61",
         "nombreContratante": "EMPRESA DE PRUEBA",
         "numeroPoliza": "OTRA-CAMP",
         "primerApellido": "OTRA",
@@ -138,20 +184,31 @@
         "fechaNacimiento": "01/01/1990",
         "nacionalidad": "HONDURAS",
         "profesionOficio": "X",
-        "fechaIngresoLabores": "01/10/2026",
         "fechaIngresoPoliza": "01/11/2026",
-        "edad": 30,
+        "sueldoMensual": "15000.00",
         "celular": "1",
         "telefonoFijo": "",
         "email": "prueba@example.test",
-        "sexo": "M",
-        "otpCodigo": "000000",
-        "beneficiarios": null
+        "sexo": "M"
       },
       "beneficiarios": {
         "vida": [],
         "contingencia": [],
-        "dependientes": []
+        "dependientes": [
+          {
+            "id": "x",
+            "primerNombre": "",
+            "segundoNombre": "",
+            "primerApellido": "",
+            "segundoApellido": "",
+            "nombre": "",
+            "parentesco": "",
+            "genero": "",
+            "fecha": "",
+            "peso": "",
+            "estatura": ""
+          }
+        ]
       },
       "metadata": {
         "versionJson": 1,
